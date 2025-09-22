@@ -65,6 +65,21 @@ dotnet run
 # - http://localhost:5000 (Swagger UI documentation)
 ```
 
+### React Frontend
+```bash
+# Setup
+mise activate  # Activate mise environment with Node.js 20 and Yarn 4
+
+# Build and run
+cd frontend-react
+yarn install    # Uses security-hardened Yarn configuration
+yarn dev        # Development server on http://localhost:5173
+
+# Production build
+yarn build
+yarn preview    # Preview production build
+```
+
 ### Testing
 ```bash
 # Run contract tests against .NET backend
@@ -143,9 +158,53 @@ cd tests
 - ⏳ **React Frontend** - Document query interface (planned)
 - ⏳ **Deployment Configurations** - Azure + multi-cloud setup (planned)
 
+## 🔒 Security Requirements
+
+**CRITICAL**: This project implements strict npm/yarn security measures to prevent supply chain attacks. All development must follow these security directives based on [npm-security-best-practices](https://github.com/bodadotsh/npm-security-best-practices):
+
+### Mandatory Frontend Security Settings
+
+**Yarn Configuration** (`frontend-react/.yarnrc.yml`):
+```yaml
+enableScripts: false                # NEVER enable scripts during install
+npmMinimalAgeGate: 4320            # Minimum 3 days (production: 7 days / 10080 minutes)
+defaultSemverRangePrefix: ""       # Always use exact versions
+enableStrictSsl: true              # Enforce SSL certificate validation
+nodeLinker: node-modules           # Use node-modules for security visibility
+```
+
+**Security Validation Commands**:
+```bash
+# Required before any dependency changes
+cd frontend-react
+yarn npm audit                     # Check for vulnerabilities
+yarn outdated                      # Review package ages
+yarn install --check-resolutions   # Verify lockfile integrity
+```
+
+**Security Violations to NEVER Allow**:
+- ❌ Enabling `enableScripts: true`
+- ❌ Reducing `npmMinimalAgeGate` below 4320 (3 days)
+- ❌ Using semver ranges instead of exact versions
+- ❌ Installing packages without age gate validation
+- ❌ Ignoring audit warnings without investigation
+
+**Production Security Hardening**:
+- Increase `npmMinimalAgeGate: 10080` (7 days) for production
+- Use private npm registry for internal packages
+- Enable package-lock auditing in CI/CD
+- Regular security dependency updates with proper testing
+
+### Why These Measures Matter
+- **Supply Chain Attacks**: Recent attacks like `node-ipc`, `ua-parser-js` compromised fresh packages
+- **Script Execution**: Malicious packages often use install scripts to compromise systems  
+- **Dependency Confusion**: Exact versions prevent typo-squatting attacks
+- **Age Gate Protection**: Minimum release age allows community discovery of malicious packages
+
 ## Notes
 
 - Keep `docs/GOALS.md` synchronized with architectural decisions
 - Prioritize OpenTelemetry integration from the start
 - Design for hybrid cloud deployment scenarios
 - Plan for comprehensive observability demo use cases listed in GOALS.md
+- **NEVER compromise on frontend security settings** - they protect against supply chain attacks

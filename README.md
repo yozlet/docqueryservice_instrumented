@@ -38,8 +38,9 @@ This project builds a complete observability solution demo with:
 ### Prerequisites
 - **Docker** with Docker Compose
 - **Python 3.9+**
-- **Node.js 18+** (for future frontend development)
-- **mise** tool manager (for .NET SDK management)
+- **Node.js 20** (managed via mise for security)
+- **Yarn 4.10.2** (managed via mise, with security hardening)
+- **mise** tool manager (for .NET SDK and Node.js management)
 - **.NET 9.0 SDK** (managed via mise)
 
 ### 1. Database Setup
@@ -119,6 +120,45 @@ curl "http://localhost:5000/api/v3/wds?rows=5"
 curl "http://localhost:5000/api/v3/wds?qterm=energy&format=xml"
 curl "http://localhost:5000/api/v3/wds/health"
 ```
+
+## 🔒 Security Best Practices
+
+This project implements comprehensive npm/yarn security measures following [npm-security-best-practices](https://github.com/bodadotsh/npm-security-best-practices):
+
+### Frontend Security Configuration
+
+**Yarn 4.10.2 Security Settings** (`.yarnrc.yml`):
+```yaml
+# Disable scripts to prevent malicious packages from running code during install
+enableScripts: false
+
+# Set minimum release age to prevent supply chain attacks from fresh packages
+npmMinimalAgeGate: 4320  # 3 days (can be increased to 10080 for 7 days)
+
+# Use exact versions for security (no semver ranges)
+defaultSemverRangePrefix: ""
+
+# Enable strict SSL
+enableStrictSsl: true
+
+# Use node-modules linker for better security visibility
+nodeLinker: node-modules
+```
+
+**Why These Settings Matter**:
+- ✅ **Scripts Disabled**: Prevents malicious packages from executing code during installation
+- ✅ **Minimum Age Gate**: Blocks packages published within 3-7 days to avoid supply chain attacks
+- ✅ **Exact Versions**: Uses exact versions without semver ranges to prevent unexpected updates
+- ✅ **Strict SSL**: Enforces SSL certificate validation for all network requests
+- ✅ **Lockfile Commit**: `yarn.lock` is committed to ensure reproducible builds
+
+**Additional Security Measures**:
+- Dependencies pinned to specific versions tested to be older than minimum age
+- Regular security audits via `yarn npm audit`
+- Overrides and resolutions to prevent transitive dependency vulnerabilities
+- Build scripts monitoring and manual review of all installed packages
+
+**⚠️ Security Note**: The minimum release age is currently set to 3 days for optimal security/usability balance. For production deployments, consider increasing to 7 days (10,080 minutes) for maximum supply chain attack protection.
 
 ## 📁 Project Structure
 
