@@ -28,6 +28,26 @@ Both backend APIs implement the same document query functionality modeled after 
 3. **API Parity**: Both .NET and Java services implement identical functionality
 4. **Unified Build**: Single script builds and manages all services locally
 
+## Database Schema
+
+The project uses a SQL database with the schema defined in:
+- **[docs/schema.sql](docs/schema.sql)** - Complete database schema
+- **[docs/sample_data.sql](docs/sample_data.sql)** - Sample data for development
+
+## Data Population
+
+Use the World Bank API scraper to populate the database with real document data:
+- **[scripts/worldbank_scraper.py](scripts/worldbank_scraper.py)** - Python scraper that fetches real World Bank documents and generates SQL INSERT statements
+- **[scripts/README.md](scripts/README.md)** - Complete usage documentation for the scraper
+
+Example usage:
+```bash
+cd scripts
+pip3 install -r requirements.txt
+python3 worldbank_scraper.py --count 100 --output data.sql
+psql -d database_name -f data.sql
+```
+
 ## Development Commands
 
 *Commands will be added once the build system is implemented*
