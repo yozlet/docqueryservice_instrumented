@@ -62,6 +62,24 @@ All components must demonstrate:
 - Infrastructure monitoring
 - Alert configuration and incident response workflows
 
+## API Contract Testing
+
+Ensure both .NET and Java implementations maintain perfect API parity:
+- **[tests/test_api_contract.py](tests/test_api_contract.py)** - Comprehensive contract test suite
+- **[tests/run_contract_tests.sh](tests/run_contract_tests.sh)** - Easy test runner for any implementation
+- **[docs/openapi.yaml](docs/openapi.yaml)** - Complete OpenAPI specification
+- **[tests/README.md](tests/README.md)** - Contract testing documentation
+
+Example usage:
+```bash
+cd tests
+# Test .NET implementation
+./run_contract_tests.sh --url http://localhost:5000/v3
+
+# Test Java implementation  
+./run_contract_tests.sh --url http://localhost:8080/v3
+```
+
 ## Implementation Status
 
 Currently in initial setup phase. The project structure and build system need to be established before implementing the document query services and observability features.

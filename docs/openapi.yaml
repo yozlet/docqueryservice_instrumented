@@ -1,0 +1,427 @@
+openapi: 3.0.3
+info:
+  title: World Bank Documents & Reports API
+  description: |
+    API for searching and retrieving World Bank documents and reports.
+    This specification models the World Bank Documents & Reports API structure
+    for our dual backend implementation (.NET and Java services).
+  version: 1.0.0
+  contact:
+    name: Document Query Service Team
+  license:
+    name: MIT
+    
+servers:
+  - url: https://api.example.com/v3
+    description: Production server
+  - url: http://localhost:8080/v3
+    description: Local development server
+
+paths:
+  /wds:
+    get:
+      summary: Search World Bank documents
+      description: |
+        Search for World Bank documents with flexible filtering and pagination.
+        Supports full-text search, country filtering, language filtering, and date ranges.
+      operationId: searchDocuments
+      parameters:
+        - name: format
+          in: query
+          description: Response format
+          required: false
+          schema:
+            type: string
+            enum: [json, xml]
+            default: json
+        - name: qterm
+          in: query
+          description: Full-text search term across document fields
+          required: false
+          schema:
+            type: string
+            example: "renewable energy"
+        - name: fl
+          in: query
+          description: Comma-separated list of fields to return
+          required: false
+          schema:
+            type: string
+            example: "id,title,docdt,count,lang"
+        - name: rows
+          in: query
+          description: Number of results per page (max 100)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+        - name: os
+          in: query
+          description: Offset/starting record number for pagination
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: count_exact
+          in: query
+          description: Filter by exact country name
+          required: false
+          schema:
+            type: string
+            example: "Brazil"
+        - name: lang_exact
+          in: query
+          description: Filter by exact language
+          required: false
+          schema:
+            type: string
+            example: "English"
+        - name: strdate
+          in: query
+          description: Start date filter (YYYY-MM-DD format)
+          required: false
+          schema:
+            type: string
+            format: date
+            example: "2020-01-01"
+        - name: enddate
+          in: query
+          description: End date filter (YYYY-MM-DD format)
+          required: false
+          schema:
+            type: string
+            format: date
+            example: "2023-12-31"
+        - name: facet
+          in: query
+          description: Request facet data
+          required: false
+          schema:
+            type: string
+            enum: [on, off]
+        - name: facet.field
+          in: query
+          description: Specific facet fields to return
+          required: false
+          schema:
+            type: string
+            example: "count,lang,docty"
+        - name: sort
+          in: query
+          description: Sort order for results
+          required: false
+          schema:
+            type: string
+            example: "docdt desc"
+      responses:
+        '200':
+          description: Successful search results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentSearchResponse'
+              examples:
+                basic_search:
+                  summary: Basic search response
+                  value:
+                    rows: 10
+                    os: 0
+                    page: 1
+                    total: 1234
+                    documents:
+                      D12345:
+                        id: "12345"
+                        title: "Renewable Energy Development in Brazil"
+                        docdt: "2023-01-15"
+                        count: "Brazil"
+                        lang: "English"
+                        docty: "Project Document"
+                        majdocty: "Project Documents"
+                        url: "https://documents.worldbank.org/curated/en/12345"
+                with_facets:
+                  summary: Search response with facets
+                  value:
+                    rows: 5
+                    os: 0
+                    page: 1
+                    total: 567
+                    documents:
+                      D67890:
+                        id: "67890"
+                        title: "Digital Infrastructure Assessment"
+                        docdt: "2023-02-20"
+                        count: "Kenya"
+                        lang: "English"
+                    facets:
+                      count:
+                        - name: "Brazil"
+                          count: 45
+                        - name: "Kenya"
+                          count: 23
+                      lang:
+                        - name: "English"
+                          count: 234
+                        - name: "Spanish"
+                          count: 12
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/DocumentSearchResponseXML'
+        '400':
+          description: Bad request - invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /health:
+    get:
+      summary: Health check endpoint
+      description: Check if the API service is healthy and operational
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "healthy"
+                  timestamp:
+                    type: string
+                    format: date-time
+                  version:
+                    type: string
+                    example: "1.0.0"
+
+components:
+  schemas:
+    DocumentSearchResponse:
+      type: object
+      required:
+        - rows
+        - os
+        - page
+        - total
+        - documents
+      properties:
+        rows:
+          type: integer
+          description: Number of rows requested
+          example: 10
+        os:
+          type: integer
+          description: Offset used for pagination
+          example: 0
+        page:
+          type: integer
+          description: Current page number
+          example: 1
+        total:
+          type: integer
+          description: Total number of matching documents
+          example: 1234
+        documents:
+          type: object
+          description: Documents keyed by document ID
+          additionalProperties:
+            $ref: '#/components/schemas/Document'
+        facets:
+          type: object
+          description: Facet data (when requested)
+          additionalProperties:
+            type: array
+            items:
+              $ref: '#/components/schemas/FacetItem'
+
+    Document:
+      type: object
+      required:
+        - id
+      properties:
+        id:
+          type: string
+          description: Unique document identifier
+          example: "12345"
+        title:
+          type: string
+          description: Document title
+          example: "Renewable Energy Development in Brazil"
+        docdt:
+          type: string
+          format: date
+          description: Document date
+          example: "2023-01-15"
+        abstract:
+          type: string
+          description: Document abstract/summary
+          example: "This document analyzes renewable energy potential..."
+        docty:
+          type: string
+          description: Document type
+          example: "Project Document"
+        majdocty:
+          type: string
+          description: Major document type category
+          example: "Project Documents"
+        volnb:
+          type: integer
+          description: Volume number
+          example: 1
+          nullable: true
+        totvolnb:
+          type: integer
+          description: Total number of volumes
+          example: 3
+          nullable: true
+        url:
+          type: string
+          format: uri
+          description: Document URL
+          example: "https://documents.worldbank.org/curated/en/12345"
+        lang:
+          type: string
+          description: Document language
+          example: "English"
+        count:
+          type: string
+          description: Country associated with document
+          example: "Brazil"
+        author:
+          type: string
+          description: Document author
+          example: "World Bank Energy Team"
+          nullable: true
+        publisher:
+          type: string
+          description: Document publisher
+          example: "World Bank"
+          nullable: true
+
+    FacetItem:
+      type: object
+      required:
+        - name
+        - count
+      properties:
+        name:
+          type: string
+          description: Facet value name
+          example: "Brazil"
+        count:
+          type: integer
+          description: Number of documents with this facet value
+          example: 45
+
+    DocumentSearchResponseXML:
+      type: object
+      xml:
+        name: response
+      properties:
+        result:
+          type: object
+          xml:
+            attribute: true
+          properties:
+            name:
+              type: string
+              xml:
+                attribute: true
+              example: "documents"
+            numFound:
+              type: integer
+              xml:
+                attribute: true
+              example: 1234
+            start:
+              type: integer
+              xml:
+                attribute: true
+              example: 0
+            docs:
+              type: array
+              items:
+                type: object
+                xml:
+                  name: doc
+                properties:
+                  id:
+                    type: string
+                    xml:
+                      name: str
+                      attribute: true
+                  title:
+                    type: string
+                    xml:
+                      name: str
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          description: Error code
+          example: "INVALID_PARAMETER"
+        message:
+          type: string
+          description: Human-readable error message
+          example: "The 'rows' parameter must be between 1 and 100"
+        details:
+          type: object
+          description: Additional error details
+          additionalProperties: true
+
+  parameters:
+    FormatParam:
+      name: format
+      in: query
+      description: Response format (json or xml)
+      schema:
+        type: string
+        enum: [json, xml]
+        default: json
+
+    PaginationRowsParam:
+      name: rows
+      in: query
+      description: Number of results per page
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 10
+
+    PaginationOffsetParam:
+      name: os
+      in: query
+      description: Starting offset for pagination
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+
+security: []
+
+tags:
+  - name: documents
+    description: Document search and retrieval operations
+  - name: health
+    description: Service health and monitoring
+
+externalDocs:
+  description: Original World Bank Documents API
+  url: https://documents.worldbank.org/en/publication/documents-reports/api

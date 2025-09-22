@@ -190,6 +190,14 @@ The scraper handles the actual API response structure and field mappings documen
 - Faceted search capabilities through dedicated views
 - Compatible with both PostgreSQL and SQL Server
 
+## API Contract Testing
+
+Validate any implementation against the API specification:
+- **[../tests/test_api_contract.py](../tests/test_api_contract.py)** - Contract test suite
+- **[../tests/run_contract_tests.sh](../tests/run_contract_tests.sh)** - Test runner
+- **[openapi.yaml](openapi.yaml)** - OpenAPI 3.0 specification
+- **[../tests/README.md](../tests/README.md)** - Testing documentation
+
 ## Related Documentation
 
 - [Project Goals](GOALS.md) - Complete project requirements and use cases
