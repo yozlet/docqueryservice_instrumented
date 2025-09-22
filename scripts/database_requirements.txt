@@ -1,2 +1,2 @@
-pyodbc>=4.0.34
+pymssql>=2.3.0
 python-dotenv>=1.0.0

@@ -52,6 +52,8 @@ docker exec docquery-sqlserver /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P
 pip3 install -r database_requirements.txt
 ```
 
+**Note:** The database utilities now use `pymssql` instead of `pyodbc` for better ARM64 (Apple Silicon) compatibility and easier setup.
+
 ### 3. Initialize Database
 ```bash
 # Test connection and create database

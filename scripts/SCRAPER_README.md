@@ -13,6 +13,8 @@ This script fetches real document data from the World Bank Documents & Reports A
    ```bash
    pip3 install -r database_requirements.txt
    ```
+   
+   **Note:** Database functionality uses `pymssql` for better compatibility across platforms, especially ARM64 (Apple Silicon).
 
 3. For development and testing, also install test dependencies:
    ```bash
@@ -122,7 +124,7 @@ The scraper includes a 1-second delay between API requests to be respectful to t
 - **No documents retrieved**: Try reducing the count or removing filters
 - **Connection errors**: Check your internet connection and try again
 - **Database connection failed**: Ensure SQL Server is running and credentials are correct
-- **ODBC driver not found**: Install SQL Server ODBC drivers for your system
+- **pymssql import error**: Install pymssql with `pip install pymssql`
 
 ## Examples
 

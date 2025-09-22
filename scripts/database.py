@@ -5,7 +5,7 @@ Handles connections and operations for SQL Server database
 """
 
 import os
-import pyodbc
+import pymssql
 import logging
 from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass
@@ -25,7 +25,7 @@ class DatabaseConfig:
     database: str = "DocQueryService"
     username: str = "sa"
     password: str = "DevPassword123!"
-    driver: str = "ODBC Driver 17 for SQL Server"
+    timeout: int = 30
     
     @classmethod
     def from_env(cls) -> "DatabaseConfig":
@@ -36,7 +36,7 @@ class DatabaseConfig:
             database=os.getenv("DB_DATABASE", "DocQueryService"),
             username=os.getenv("DB_USERNAME", "sa"),
             password=os.getenv("DB_PASSWORD", "DevPassword123!"),
-            driver=os.getenv("DB_DRIVER", "ODBC Driver 17 for SQL Server")
+            timeout=int(os.getenv("DB_TIMEOUT", "30"))
         )
 
 class DatabaseManager:
@@ -44,28 +44,21 @@ class DatabaseManager:
     
     def __init__(self, config: Optional[DatabaseConfig] = None):
         self.config = config or DatabaseConfig.from_env()
-        self._connection_string = self._build_connection_string()
-        
-    def _build_connection_string(self) -> str:
-        """Build SQL Server connection string"""
-        return (
-            f"DRIVER={{{self.config.driver}}};"
-            f"SERVER={self.config.server},{self.config.port};"
-            f"DATABASE={self.config.database};"
-            f"UID={self.config.username};"
-            f"PWD={self.config.password};"
-            f"TrustServerCertificate=yes;"
-            f"Connection Timeout=30;"
-            f"Command Timeout=30;"
-        )
     
     @contextmanager
     def get_connection(self):
         """Get a database connection with automatic cleanup"""
         connection = None
         try:
-            connection = pyodbc.connect(self._connection_string)
-            connection.autocommit = False
+            connection = pymssql.connect(
+                server=self.config.server,
+                port=self.config.port,
+                user=self.config.username,
+                password=self.config.password,
+                database=self.config.database,
+                timeout=self.config.timeout,
+                autocommit=False
+            )
             yield connection
         except Exception as e:
             if connection:
@@ -99,16 +92,27 @@ class DatabaseManager:
                 database="master",
                 username=self.config.username,
                 password=self.config.password,
-                driver=self.config.driver
+                timeout=self.config.timeout
             )
             master_manager = DatabaseManager(master_config)
             
-            with master_manager.get_connection() as conn:
-                cursor = conn.cursor()
+            # Use autocommit for DDL operations
+            connection = None
+            try:
+                connection = pymssql.connect(
+                    server=master_config.server,
+                    port=master_config.port,
+                    user=master_config.username,
+                    password=master_config.password,
+                    database=master_config.database,
+                    timeout=master_config.timeout,
+                    autocommit=True
+                )
+                cursor = connection.cursor()
                 
                 # Check if database exists
                 cursor.execute(
-                    "SELECT COUNT(*) FROM sys.databases WHERE name = ?", 
+                    "SELECT COUNT(*) FROM sys.databases WHERE name = %s", 
                     (self.config.database,)
                 )
                 exists = cursor.fetchone()[0] > 0
@@ -116,12 +120,15 @@ class DatabaseManager:
                 if not exists:
                     logger.info(f"Creating database: {self.config.database}")
                     cursor.execute(f"CREATE DATABASE [{self.config.database}]")
-                    conn.commit()
                     logger.info("Database created successfully")
                 else:
                     logger.info("Database already exists")
                 
                 return True
+                
+            finally:
+                if connection:
+                    connection.close()
                 
         except Exception as e:
             logger.error(f"Failed to create database: {e}")
@@ -167,7 +174,7 @@ class DatabaseManager:
                 INSERT INTO documents (
                     id, title, docdt, abstract, docty, majdocty, 
                     volnb, totvolnb, url, lang, country, author, publisher
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """
                 
                 # Convert date string to date object if needed
@@ -226,7 +233,7 @@ class DatabaseManager:
                             # Prepare insert statement 
                             sql = """
                             MERGE documents AS target
-                            USING (VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)) AS source 
+                            USING (VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)) AS source 
                             (id, title, docdt, abstract, docty, majdocty, volnb, totvolnb, url, lang, country, author, publisher)
                             ON target.id = source.id
                             WHEN MATCHED THEN
@@ -307,22 +314,34 @@ class DatabaseManager:
             return 0
     
     def search_documents(self, search_term: str = None, limit: int = 10) -> List[Dict[str, Any]]:
-        """Search documents using full-text search"""
+        """Search documents using full-text search or LIKE fallback"""
         try:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
                 
                 if search_term:
-                    sql = """
-                    SELECT TOP (?) id, title, abstract, docdt, lang, country, majdocty, url
-                    FROM documents
-                    WHERE CONTAINS((title, abstract), ?)
-                    ORDER BY id
-                    """
-                    cursor.execute(sql, (limit, search_term))
+                    # Try full-text search first, fallback to LIKE if not available
+                    try:
+                        sql = """
+                        SELECT TOP (%s) id, title, abstract, docdt, lang, country, majdocty, url
+                        FROM documents
+                        WHERE CONTAINS((title, abstract), %s)
+                        ORDER BY id
+                        """
+                        cursor.execute(sql, (limit, search_term))
+                    except:
+                        # Fallback to LIKE search
+                        sql = """
+                        SELECT TOP (%s) id, title, abstract, docdt, lang, country, majdocty, url
+                        FROM documents
+                        WHERE title LIKE %s OR abstract LIKE %s
+                        ORDER BY created_at DESC
+                        """
+                        search_pattern = f'%{search_term}%'
+                        cursor.execute(sql, (limit, search_pattern, search_pattern))
                 else:
                     sql = """
-                    SELECT TOP (?) id, title, abstract, docdt, lang, country, majdocty, url
+                    SELECT TOP (%s) id, title, abstract, docdt, lang, country, majdocty, url
                     FROM documents
                     ORDER BY created_at DESC
                     """

@@ -2,7 +2,9 @@ version: '3.8'
 
 services:
   sqlserver:
-    image: mcr.microsoft.com/mssql/server:2022-latest
+    # Use Azure SQL Edge for ARM64 compatibility (Apple Silicon)
+    # Falls back to standard SQL Server on x86_64
+    image: mcr.microsoft.com/azure-sql-edge:latest
     container_name: docquery-sqlserver
     environment:
       - ACCEPT_EULA=Y
@@ -21,21 +23,6 @@ services:
       retries: 10
       start_period: 10s
 
-  # Optional: SQL Server Management Studio alternative (Azure Data Studio in browser)
-  # Uncomment if you want a web-based SQL client
-  # sqledge:
-  #   image: mcr.microsoft.com/azure-sql-edge:latest
-  #   container_name: docquery-sqledge
-  #   environment:
-  #     - ACCEPT_EULA=Y
-  #     - SA_PASSWORD=DevPassword123!
-  #   ports:
-  #     - "1434:1433"
-  #   volumes:
-  #     - sqledge_data:/var/opt/mssql
-
 volumes:
   sqlserver_data:
     driver: local
-  # sqledge_data:
-  #   driver: local

@@ -22,7 +22,7 @@ try:
     DATABASE_AVAILABLE = True
 except ImportError:
     DATABASE_AVAILABLE = False
-    print("Database utilities not available. Install pyodbc to use database features.")
+    print("Database utilities not available. Install pymssql to use database features.")
 
 class WorldBankScraper:
     def __init__(self):
@@ -296,7 +296,7 @@ class WorldBankScraper:
     def insert_to_database(self, docs: List[Dict[str, Any]], db_config: Optional[DatabaseConfig] = None) -> bool:
         """Insert documents directly into SQL Server database"""
         if not DATABASE_AVAILABLE:
-            print("Database functionality not available. Install pyodbc to use this feature.")
+            print("Database functionality not available. Install pymssql to use this feature.")
             return False
         
         try:
