@@ -1,32 +1,48 @@
-# API Contract Tests
+# API Contract Testing
 
-This directory contains a comprehensive test suite that validates any implementation of the World Bank Documents API against the defined contract. These tests ensure API parity between the .NET and Java implementations.
+This directory contains comprehensive contract testing for the World Bank Documents API, ensuring both .NET and Java implementations maintain perfect parity using our **dual testing approach**.
 
-## Overview
+## 📋 Overview
 
-The contract tests validate:
-- **API Structure**: Correct endpoint behavior and response formats
-- **Parameter Handling**: Proper processing of query parameters
-- **Data Quality**: Schema compliance and data consistency
-- **Error Handling**: Appropriate error responses
-- **Pagination**: Consistent pagination behavior
-- **Filtering**: Search and filter functionality
+Our testing strategy combines two complementary test suites to provide comprehensive API validation:
 
-## Quick Start
+### 🔧 **Behavioral Contract Tests** (`test_api_contract.py`)
+Tests runtime behavior, data quality, and business logic:
+- **API Consistency**: Identical requests return identical results
+- **Data Quality**: Document IDs are unique, fields contain meaningful content  
+- **Business Logic**: Country/language filtering, date range queries work correctly
+- **Content-Type Validation**: Headers match expected formats (JSON/XML)
+- **Error Handling**: Invalid parameters are handled gracefully
+- **Document Structure**: Real-world API response format compliance
 
-### Test Local Implementation
+### 📐 **OpenAPI Specification Tests** (`test_openapi_contract.py`) 
+Tests structural compliance with the OpenAPI specification:
+- **Schema Validation**: Response structure matches OpenAPI schemas exactly
+- **Parameter Compliance**: All spec-defined parameters work correctly
+- **Reference Resolution**: Complex schema references are properly resolved
+- **Spec-Driven Testing**: Tests automatically generated from OpenAPI definition
+- **Format Validation**: Date parameters, enums, and constraints work as specified
 
+## 🚀 Quick Start
+
+### Run All Tests (Recommended)
 ```bash
-# Test .NET implementation (default port 5000)
-./run_contract_tests.sh --url http://localhost:5000/v3
-
-# Test Java implementation (default port 8080)
+# Run comprehensive testing (both behavioral + OpenAPI compliance)
 ./run_contract_tests.sh --url http://localhost:8080/v3
 ```
 
-### Test Deployed Service
-
+### Run Specific Test Suite
 ```bash
+# Only behavioral/business logic tests
+./run_contract_tests.sh --suite behavioral --url http://localhost:8080/v3
+
+# Only OpenAPI specification compliance
+./run_contract_tests.sh --suite openapi --url http://localhost:8080/v3
+
+# Test .NET implementation with both suites
+./run_contract_tests.sh --url http://localhost:5000/v3
+
+# Test deployed service
 ./run_contract_tests.sh --url https://api.yourservice.com/v3
 ```
 
@@ -96,6 +112,26 @@ The contract tests validate:
 ./run_contract_tests.sh --category quality
 ```
 
+## 🎯 Why Both Test Suites?
+
+**Different APIs can fail in different ways:**
+
+### ❌ **OpenAPI Tests Pass, Behavioral Tests Fail**
+- API returns structurally valid responses
+- But business logic is broken (wrong filtering, inconsistent results)  
+- Data quality issues (empty fields, duplicate IDs)
+
+### ❌ **Behavioral Tests Pass, OpenAPI Tests Fail**
+- API works correctly in practice
+- But response structure doesn't match specification exactly
+- Schema references are malformed or missing
+
+### ✅ **Both Pass = Production Ready**
+- Structure matches specification exactly
+- Business logic works correctly
+- Data quality is high
+- Ready for production deployment
+
 ## Setup
 
 ### Install Dependencies
@@ -111,6 +147,8 @@ pip3 install -r contract_test_requirements.txt
 - `pyyaml` - YAML parsing for OpenAPI spec
 - `pytest-html` - HTML test reports
 - `pytest-json-report` - JSON test reports
+- `openapi-spec-validator` - OpenAPI validation (OpenAPI tests only)
+- `openapi3-parser` - OpenAPI parsing (OpenAPI tests only)
 
 ## Running Tests
 

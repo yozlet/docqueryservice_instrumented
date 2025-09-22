@@ -64,21 +64,35 @@ All components must demonstrate:
 
 ## API Contract Testing
 
-Ensure both .NET and Java implementations maintain perfect API parity:
-- **[tests/test_api_contract.py](tests/test_api_contract.py)** - Comprehensive contract test suite
-- **[tests/run_contract_tests.sh](tests/run_contract_tests.sh)** - Easy test runner for any implementation
-- **[docs/openapi.yaml](docs/openapi.yaml)** - Complete OpenAPI specification
-- **[tests/README.md](tests/README.md)** - Contract testing documentation
+Ensure both .NET and Java implementations maintain perfect API parity using our dual testing approach:
 
-Example usage:
+### **Test Suites**
+- **[tests/test_api_contract.py](tests/test_api_contract.py)** - Behavioral contract tests (consistency, data quality, business logic)
+- **[tests/test_openapi_contract.py](tests/test_openapi_contract.py)** - OpenAPI spec-driven tests (schema validation, parameter compliance)
+- **[tests/run_contract_tests.sh](tests/run_contract_tests.sh)** - Unified test runner for both suites
+- **[docs/openapi.yaml](docs/openapi.yaml)** - Complete OpenAPI specification (single source of truth)
+
+### **Usage Examples**
 ```bash
 cd tests
-# Test .NET implementation
+
+# Run comprehensive testing (both behavioral + OpenAPI compliance)
 ./run_contract_tests.sh --url http://localhost:5000/v3
 
-# Test Java implementation  
-./run_contract_tests.sh --url http://localhost:8080/v3
+# Test only OpenAPI specification compliance
+./run_contract_tests.sh --url http://localhost:8080/v3 --suite openapi
+
+# Test only behavioral/business logic compliance
+./run_contract_tests.sh --url http://localhost:8080/v3 --suite behavioral
+
+# Test specific behavioral categories
+./run_contract_tests.sh --suite behavioral --category consistency,quality
 ```
+
+### **Why Two Test Suites?**
+- **OpenAPI Tests**: Ensure structural/schema compliance with the specification
+- **Behavioral Tests**: Ensure runtime behavior, data quality, and business logic correctness
+- **Combined**: Comprehensive validation that catches both spec violations and implementation bugs
 
 ## Implementation Status
 
