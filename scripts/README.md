@@ -2,6 +2,8 @@
 
 This directory contains all the tools needed to set up and populate a SQL Server database for the Document Query Service.
 
+> **📋 Documentation Note**: This README covers database setup and infrastructure. For detailed information about the World Bank API scraper, see [SCRAPER_README.md](SCRAPER_README.md).
+
 ## 🚀 Quick Start
 
 **One-command setup** (recommended):
@@ -25,7 +27,7 @@ This will:
 
 ### Python Tools
 - **`database.py`** - Database connection utilities and operations
-- **`worldbank_scraper.py`** - Enhanced scraper with direct database insertion
+- **`worldbank_scraper.py`** - Enhanced scraper with direct database insertion (see [SCRAPER_README.md](SCRAPER_README.md))
 - **`database_requirements.txt`** - Python dependencies for database operations
 
 ### Setup Scripts  
