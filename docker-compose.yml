@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: docquery-sqlserver
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=DevPassword123!
+      - MSSQL_PID=Developer
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver_data:/var/opt/mssql
+      - ./scripts/sql:/scripts
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P DevPassword123! -Q 'SELECT 1' || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+  # Optional: SQL Server Management Studio alternative (Azure Data Studio in browser)
+  # Uncomment if you want a web-based SQL client
+  # sqledge:
+  #   image: mcr.microsoft.com/azure-sql-edge:latest
+  #   container_name: docquery-sqledge
+  #   environment:
+  #     - ACCEPT_EULA=Y
+  #     - SA_PASSWORD=DevPassword123!
+  #   ports:
+  #     - "1434:1433"
+  #   volumes:
+  #     - sqledge_data:/var/opt/mssql
+
+volumes:
+  sqlserver_data:
+    driver: local
+  # sqledge_data:
+  #   driver: local

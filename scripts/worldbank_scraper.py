@@ -2,6 +2,7 @@
 """
 World Bank Documents API Scraper
 Fetches real document data from the World Bank API and generates SQL INSERT statements.
+Can also directly insert into SQL Server database.
 """
 
 import requests
@@ -9,10 +10,19 @@ import json
 import argparse
 import time
 import sys
+import os
 from datetime import datetime
 from typing import Dict, List, Optional, Any
 import urllib.parse
 import re
+
+# Try to import database utilities (optional)
+try:
+    from database import DatabaseManager, DatabaseConfig
+    DATABASE_AVAILABLE = True
+except ImportError:
+    DATABASE_AVAILABLE = False
+    print("Database utilities not available. Install pyodbc to use database features.")
 
 class WorldBankScraper:
     def __init__(self):
@@ -282,6 +292,74 @@ class WorldBankScraper:
         print(f"Countries: {len(countries)}")
         print(f"Languages: {len(languages)}")
         print(f"Document Types: {len(doctypes)}")
+    
+    def insert_to_database(self, docs: List[Dict[str, Any]], db_config: Optional[DatabaseConfig] = None) -> bool:
+        """Insert documents directly into SQL Server database"""
+        if not DATABASE_AVAILABLE:
+            print("Database functionality not available. Install pyodbc to use this feature.")
+            return False
+        
+        try:
+            db_manager = DatabaseManager(db_config)
+            
+            # Test connection first
+            if not db_manager.test_connection():
+                print("Failed to connect to database")
+                return False
+            
+            print("Connected to database successfully")
+            
+            # Process documents into database format
+            db_docs = []
+            for doc in docs:
+                db_doc = {
+                    'id': self.clean_text(doc.get('id', '')),
+                    'title': self.clean_text(doc.get('display_title', '')),
+                    'abstract': self.clean_text(doc.get('abstract', '')),
+                    'docdt': doc.get('docdt'),
+                    'docty': self.clean_text(doc.get('docty', '')) if not isinstance(doc.get('docty'), list) 
+                            else self.clean_text(doc['docty'][0]) if doc.get('docty') else '',
+                    'majdocty': self.clean_text(doc.get('majdocty', '')) if not isinstance(doc.get('majdocty'), list)
+                               else self.clean_text(doc['majdocty'][0]) if doc.get('majdocty') else '',
+                    'volnb': doc.get('volnb') if doc.get('volnb') and str(doc.get('volnb')).isdigit() else None,
+                    'totvolnb': doc.get('totvolnb') if doc.get('totvolnb') and str(doc.get('totvolnb')).isdigit() else None,
+                    'url': self.clean_text(doc.get('pdfurl', '') or doc.get('url', '')),
+                    'lang': self.clean_text(doc.get('lang', '')) if not isinstance(doc.get('lang'), list)
+                           else self.clean_text(doc['lang'][0]) if doc.get('lang') else '',
+                    'count': self.clean_text(doc.get('count', '')) if not isinstance(doc.get('count'), list)
+                            else self.clean_text(doc['count'][0]) if doc.get('count') else '',
+                    'author': self.clean_text(doc.get('author', '')),
+                    'publisher': self.clean_text(doc.get('publisher', ''))
+                }
+                
+                # Handle date parsing
+                if db_doc['docdt']:
+                    try:
+                        if 'T' in str(db_doc['docdt']):
+                            parsed_date = datetime.fromisoformat(str(db_doc['docdt']).replace('Z', '+00:00'))
+                        else:
+                            parsed_date = datetime.strptime(str(db_doc['docdt'])[:10], '%Y-%m-%d')
+                        db_doc['docdt'] = parsed_date.date()
+                    except:
+                        db_doc['docdt'] = None
+                
+                db_docs.append(db_doc)
+            
+            # Bulk insert documents
+            inserted_count, failed_count = db_manager.bulk_insert_documents(db_docs)
+            
+            if inserted_count > 0:
+                print(f"Successfully inserted {inserted_count} documents")
+                if failed_count > 0:
+                    print(f"Failed to insert {failed_count} documents")
+                return True
+            else:
+                print("No documents were inserted")
+                return False
+                
+        except Exception as e:
+            print(f"Database insertion failed: {e}")
+            return False
 
 def main():
     parser = argparse.ArgumentParser(description='Scrape World Bank Documents API')
@@ -295,6 +373,14 @@ def main():
                        help='Filter by specific country (optional)')
     parser.add_argument('--offset', type=int, default=0,
                        help='Starting offset for pagination (default: 0)')
+    parser.add_argument('--database', action='store_true',
+                       help='Insert directly into SQL Server database (requires pyodbc)')
+    parser.add_argument('--db-server', type=str, default='localhost',
+                       help='Database server (default: localhost)')
+    parser.add_argument('--db-port', type=int, default=1433,
+                       help='Database port (default: 1433)')
+    parser.add_argument('--db-name', type=str, default='DocQueryService',
+                       help='Database name (default: DocQueryService)')
     
     args = parser.parse_args()
     
@@ -304,6 +390,8 @@ def main():
         print(f"Query: {args.query}")
     if args.country:
         print(f"Country: {args.country}")
+    if args.database:
+        print(f"Database: {args.db_server}:{args.db_port}/{args.db_name}")
     print()
     
     scraper = WorldBankScraper()
@@ -317,9 +405,39 @@ def main():
         )
         
         if docs:
-            scraper.generate_sql_inserts(docs, args.output)
-            print(f"\nSuccess! Generated {args.output} with {len(docs)} documents.")
-            print(f"Run this SQL file against your database to insert the data.")
+            success = False
+            
+            # Insert to database if requested
+            if args.database:
+                if DATABASE_AVAILABLE:
+                    db_config = DatabaseConfig(
+                        server=args.db_server,
+                        port=args.db_port,
+                        database=args.db_name
+                    )
+                    if scraper.insert_to_database(docs, db_config):
+                        success = True
+                        print(f"\nSuccess! Inserted {len(docs)} documents into database.")
+                    else:
+                        print("\nDatabase insertion failed, generating SQL file instead...")
+                        scraper.generate_sql_inserts(docs, args.output)
+                        print(f"Generated {args.output} with {len(docs)} documents.")
+                        success = True
+                else:
+                    print("\nDatabase functionality not available. Install pyodbc to use --database option.")
+                    print("Generating SQL file instead...")
+                    scraper.generate_sql_inserts(docs, args.output)
+                    print(f"Generated {args.output} with {len(docs)} documents.")
+                    success = True
+            else:
+                # Generate SQL file
+                scraper.generate_sql_inserts(docs, args.output)
+                print(f"\nSuccess! Generated {args.output} with {len(docs)} documents.")
+                print(f"Run this SQL file against your database to insert the data.")
+                success = True
+            
+            if not success:
+                sys.exit(1)
         else:
             print("No documents retrieved.")
             sys.exit(1)
