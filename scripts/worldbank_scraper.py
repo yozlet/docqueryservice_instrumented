@@ -23,9 +23,9 @@ class WorldBankScraper:
         })
         
     def fetch_documents(self, count: int = 100, start_offset: int = 0, 
-                       query_term: str = None, country: str = None) -> List[Dict]:
+                       query_term: Optional[str] = None, country: Optional[str] = None) -> List[Dict[str, Any]]:
         """Fetch documents from the World Bank API."""
-        all_docs = []
+        all_docs: List[Dict[str, Any]] = []
         rows_per_request = min(100, count)  # API max is 100 per request
         current_offset = start_offset
         
@@ -97,7 +97,7 @@ class WorldBankScraper:
         
         return text_str[:5000]  # Limit length to prevent issues
 
-    def extract_countries_from_docs(self, docs: List[Dict]) -> List[str]:
+    def extract_countries_from_docs(self, docs: List[Dict[str, Any]]) -> List[str]:
         """Extract unique countries from documents."""
         countries = set()
         for doc in docs:
@@ -108,7 +108,7 @@ class WorldBankScraper:
                 countries.add(country)
         return sorted(list(countries))
 
-    def extract_languages_from_docs(self, docs: List[Dict]) -> List[str]:
+    def extract_languages_from_docs(self, docs: List[Dict[str, Any]]) -> List[str]:
         """Extract unique languages from documents."""
         languages = set()
         for doc in docs:
@@ -119,7 +119,7 @@ class WorldBankScraper:
                 languages.add(lang)
         return sorted(list(languages))
 
-    def extract_doctypes_from_docs(self, docs: List[Dict]) -> List[Dict]:
+    def extract_doctypes_from_docs(self, docs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Extract unique document types from documents."""
         doctypes = {}
         for doc in docs:
@@ -136,7 +136,7 @@ class WorldBankScraper:
                     
         return [{'type_name': k, 'major_type': v} for k, v in doctypes.items()]
 
-    def generate_sql_inserts(self, docs: List[Dict], output_file: str):
+    def generate_sql_inserts(self, docs: List[Dict[str, Any]], output_file: str) -> None:
         """Generate SQL INSERT statements from document data."""
         
         # Extract reference data
