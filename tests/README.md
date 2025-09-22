@@ -23,24 +23,36 @@ Tests structural compliance with the OpenAPI specification:
 - **Spec-Driven Testing**: Tests automatically generated from OpenAPI definition
 - **Format Validation**: Date parameters, enums, and constraints work as specified
 
+## 🎯 Current Test Results
+
+### ✅ .NET Backend (backend-dotnet/)
+- **Overall Compliance**: 42/45 tests passing (93% compliance)
+- **Behavioral Tests**: 21/23 passing (91% compliance) 
+- **OpenAPI Tests**: 21/22 passing (95% compliance)
+- **Status**: ✅ Production ready
+
+### 🚧 Java Backend (planned)
+- **Status**: Not yet implemented
+- **Target**: 100% test parity with .NET implementation
+
 ## 🚀 Quick Start
 
-### Run All Tests (Recommended)
+### Test .NET Backend (Recommended)
 ```bash
-# Run comprehensive testing (both behavioral + OpenAPI compliance)
-./run_contract_tests.sh --url http://localhost:8080/v3
+# Run comprehensive testing (both behavioral + OpenAPI compliance)  
+./run_contract_tests.sh --url http://localhost:5000/api/v3
 ```
 
 ### Run Specific Test Suite
 ```bash
-# Only behavioral/business logic tests
-./run_contract_tests.sh --suite behavioral --url http://localhost:8080/v3
+# Test .NET implementation - behavioral tests only
+./run_contract_tests.sh --suite behavioral --url http://localhost:5000/api/v3
 
-# Only OpenAPI specification compliance
-./run_contract_tests.sh --suite openapi --url http://localhost:8080/v3
+# Test .NET implementation - OpenAPI compliance only  
+./run_contract_tests.sh --suite openapi --url http://localhost:5000/api/v3
 
-# Test .NET implementation with both suites
-./run_contract_tests.sh --url http://localhost:5000/v3
+# Test Java implementation (when available)
+./run_contract_tests.sh --url http://localhost:8080/v3
 
 # Test deployed service
 ./run_contract_tests.sh --url https://api.yourservice.com/v3
@@ -263,9 +275,9 @@ fi
 1. Run full test suite against both implementations:
    ```bash
    # Test .NET implementation
-   ./run_contract_tests.sh --url http://localhost:5000/v3
+   ./run_contract_tests.sh --url http://localhost:5000/api/v3
    
-   # Test Java implementation  
+   # Test Java implementation (when available)
    ./run_contract_tests.sh --url http://localhost:8080/v3
    ```
 

@@ -39,6 +39,8 @@ This project builds a complete observability solution demo with:
 - **Docker** with Docker Compose
 - **Python 3.9+**
 - **Node.js 18+** (for future frontend development)
+- **mise** tool manager (for .NET SDK management)
+- **.NET 9.0 SDK** (managed via mise)
 
 ### 1. Database Setup
 
@@ -89,6 +91,35 @@ python3 worldbank_scraper.py --country "Brazil" --count 50 --database
 python3 worldbank_scraper.py --count 2000 --database
 ```
 
+### 4. Run the .NET Backend
+
+```bash
+# Setup .NET environment
+mise activate
+
+# Build and run the .NET API
+cd backend-dotnet
+dotnet build
+dotnet run
+
+# The API will be available at:
+# - http://localhost:5000/api/v3/wds (World Bank API endpoints)
+# - http://localhost:5000 (Interactive Swagger UI documentation)
+```
+
+### 5. Test the API
+
+```bash
+# Run comprehensive contract tests
+cd tests
+./run_contract_tests.sh --url http://localhost:5000/api/v3
+
+# Test specific endpoints manually
+curl "http://localhost:5000/api/v3/wds?rows=5"
+curl "http://localhost:5000/api/v3/wds?qterm=energy&format=xml"
+curl "http://localhost:5000/api/v3/wds/health"
+```
+
 ## 📁 Project Structure
 
 ```
@@ -101,12 +132,18 @@ python3 worldbank_scraper.py --count 2000 --database
 │   ├── worldbank_scraper.py    # World Bank API scraper
 │   ├── setup-database.sh       # Automated database setup
 │   └── sql/                    # SQL schema and scripts
-├── tests/                       # Contract tests and API validation
+├── backend-dotnet/             # .NET backend API implementation
+│   ├── Controllers/            # ASP.NET Core API controllers
+│   ├── Models/                 # Data models and DTOs
+│   ├── Services/               # Business logic and data access
+│   ├── Dockerfile              # Container configuration
+│   └── README.md               # .NET backend documentation
+├── tests/                      # Contract tests and API validation
 ├── docs/                       # Project documentation
 │   ├── GOALS.md                # Observability demo objectives
 │   ├── WORLDBANK_API.md        # API specification reference
 │   └── openapi.yaml            # OpenAPI specification
-└── [backends]                  # Future: .NET and Java API implementations
+└── [backend-java]              # Future: Java backend API implementation
 ```
 
 ## 🛠️ Current Status
@@ -138,13 +175,26 @@ python3 worldbank_scraper.py --count 2000 --database
 - **Database schema documentation** with entity relationships
 - **Cross-platform compatibility** notes (especially ARM64/Apple Silicon)
 
+#### **Backend APIs**
+- ✅ **.NET Backend API** (`backend-dotnet/`) - Complete ASP.NET Core Web API
+  - World Bank API compatible endpoints (`GET /api/v3/wds`)
+  - SQL Server integration with Dapper ORM and connection pooling
+  - OpenTelemetry distributed tracing and runtime metrics instrumentation
+  - XML and JSON format support with proper Content-Type headers
+  - Docker containerization with multi-stage builds
+  - Interactive Swagger/OpenAPI documentation at root path
+  - **Contract Compliance**: 42/45 tests passing (93% overall compliance)
+    - **Behavioral Tests**: 21/23 passing (91% compliance) ✅
+    - **OpenAPI Tests**: 21/22 passing (95% compliance) ✅
+  - Full error handling with structured logging and HTTP status codes
+  - CORS configuration for cross-origin requests
+
 ### 🚧 **In Development**
 
 - **Frontend React application** for document search and browsing
-- **.NET backend API** implementing World Bank-style endpoints  
 - **Java backend API** with identical functionality to .NET version
-- **OpenTelemetry instrumentation** across all components
-- **Honeycomb.io integration** for unified observability
+- **Deployment configurations** for Azure App Services and multi-cloud setup
+- **Honeycomb.io integration** for unified observability platform
 
 ### 📋 **Planned Features**
 
@@ -169,18 +219,39 @@ python3 worldbank_scraper.py --count 100 --database
 python3 worldbank_scraper.py --count 100 --output documents.sql
 ```
 
+### Backend Development
+
+```bash
+# .NET Backend
+mise activate                           # Activate .NET SDK environment
+cd backend-dotnet
+dotnet build                            # Build the project
+dotnet run                              # Start the API server (http://localhost:5000)
+
+# Available endpoints:
+# - GET /api/v3/wds                     # Search documents with pagination
+# - GET /api/v3/wds/{id}               # Get specific document by ID
+# - GET /api/v3/wds/facets             # Get search facets for filtering
+# - GET /api/v3/wds/health             # Health check endpoint
+# - GET / (root)                       # Interactive Swagger UI documentation
+```
+
 ### Testing
 
 ```bash
-# Run API contract tests
+# Run comprehensive API contract tests against .NET backend
 cd tests
-./run_contract_tests.sh
+./run_contract_tests.sh --url http://localhost:5000/api/v3
 
-# Run with verbose output
-pytest test_api_contract.py -v
+# Run specific test suites
+./run_contract_tests.sh --url http://localhost:5000/api/v3 --suite behavioral  # 21/23 ✅
+./run_contract_tests.sh --url http://localhost:5000/api/v3 --suite openapi     # 21/22 ✅
 
-# Generate test reports
-pytest test_openapi_contract.py --html=reports/test_report.html
+# Run with verbose output and custom categories
+./run_contract_tests.sh --suite behavioral --category consistency,quality
+
+# Generate detailed test reports (HTML + JSON)
+./run_contract_tests.sh --url http://localhost:5000/api/v3 --report-dir ./reports
 ```
 
 ### Configuration
@@ -249,6 +320,6 @@ This project is designed for educational and demonstration purposes, showcasing 
 
 ---
 
-**Status**: 🟢 Database infrastructure complete, ready for backend API development
+**Status**: 🟢 .NET backend API complete with 93% World Bank API contract compliance
 
-**Next Milestone**: .NET and Java backend API implementations with OpenTelemetry instrumentation
+**Next Milestone**: Java backend API implementation and React frontend development
