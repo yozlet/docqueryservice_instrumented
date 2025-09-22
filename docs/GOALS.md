@@ -127,7 +127,7 @@ Build a simple application that demonstrates observability features (metrics, lo
 The existing Document Query Service project provides:
 - Nothing yet
 
-However, the aim is to implement APIs for searching a document store, and retrieving documents. The API should be modeled on that provided by the World Bank's Document & Report API, as documented at https://documents.worldbank.org/en/publication/documents-reports/api
+However, the aim is to implement APIs for searching a document store, and retrieving documents. The API should be modeled on that provided by the World Bank's Document & Report API. See [WORLDBANK_API.md](WORLDBANK_API.md) for detailed API specification and implementation requirements.
 
 The same API will be implemented in _both_ .NET and Java, with the frontend UI giving the option to choose between the two. The frontend itself will provide pages for building queries and navigating the results, implemented in React.
 

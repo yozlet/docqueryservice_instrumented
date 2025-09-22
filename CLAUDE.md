@@ -19,7 +19,7 @@ This is an **observability solution demo** project that builds a hybrid full-sta
 - **Observability Platform**: Honeycomb.io with OpenTelemetry collectors
 
 ### Document Query Service
-Both backend APIs implement the same document query functionality modeled after the World Bank's Document & Reports API. The frontend provides query building and result navigation with the option to switch between backend services.
+Both backend APIs implement the same document query functionality modeled after the World Bank's Document & Reports API (see [docs/WORLDBANK_API.md](docs/WORLDBANK_API.md) for complete specification). The frontend provides query building and result navigation with the option to switch between backend services.
 
 ## Key Development Principles
 
