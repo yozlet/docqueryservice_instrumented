@@ -9,6 +9,11 @@ This script fetches real document data from the World Bank Documents & Reports A
    pip3 install -r requirements.txt
    ```
 
+2. For development and testing, also install test dependencies:
+   ```bash
+   pip3 install -r test_requirements.txt
+   ```
+
 ## Usage
 
 ### Basic Usage
@@ -105,3 +110,51 @@ python3 worldbank_scraper.py --count 1000 --offset 0 --output batch1.sql
 python3 worldbank_scraper.py --count 1000 --offset 1000 --output batch2.sql
 python3 worldbank_scraper.py --count 1000 --offset 2000 --output batch3.sql
 ```
+
+## Testing
+
+The scraper includes a comprehensive test suite to ensure reliability and make it easier to validate changes.
+
+### Running Tests
+
+Run all tests:
+```bash
+pytest test_worldbank_scraper.py
+```
+
+Run with coverage:
+```bash
+pytest test_worldbank_scraper.py --cov=worldbank_scraper
+```
+
+Run specific test categories:
+```bash
+# Unit tests only
+pytest test_worldbank_scraper.py::TestWorldBankScraper
+
+# CLI tests only  
+pytest test_worldbank_scraper.py::TestScraperCLI
+
+# Specific test
+pytest test_worldbank_scraper.py::TestWorldBankScraper::test_clean_text_basic
+```
+
+### Test Coverage
+
+The test suite covers:
+- **Text cleaning and sanitization** - Special characters, null bytes, length limits
+- **Data extraction methods** - Countries, languages, document types from API responses
+- **API interaction** - Request handling, parameter passing, error handling
+- **SQL generation** - INSERT statement creation, field mapping, conflict handling
+- **Date parsing** - Various date formats and edge cases
+- **Command-line interface** - Argument parsing and method calls
+- **Rate limiting** - Delay between API requests
+- **Field mapping** - Correct handling of API response structure
+
+### Test Data
+
+Tests use realistic mock data that matches the actual World Bank API response structure, including:
+- Multiple document formats
+- Nested fields (like `docna` arrays)
+- Optional fields and edge cases
+- Various data types and formats
