@@ -140,7 +140,7 @@ check_container_status() {
 load_env() {
     if [ -f "local-dev.env" ]; then
         [ "$VERBOSE" = true ] && log "Loading local-dev.env"
-        export $(grep -v '^#' local-dev.env | xargs)
+        export $(grep -v '^#' local-dev.env | grep -v '^export' | xargs)
     else
         warn "local-dev.env not found, using defaults"
     fi
