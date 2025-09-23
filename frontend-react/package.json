@@ -10,7 +10,14 @@
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
     "audit": "yarn npm audit",
-    "security-check": "yarn audit && yarn outdated"
+    "security-check": "yarn audit && yarn outdated",
+    "docker:build": "docker build -t docqueryservice-frontend .",
+    "docker:run": "docker run -p 3000:80 docqueryservice-frontend",
+    "docker:compose": "docker-compose up -d",
+    "docker:compose:build": "docker-compose up -d --build",
+    "docker:stop": "docker-compose down",
+    "deploy:build": "yarn build && yarn docker:build",
+    "deploy:local": "yarn deploy:build && yarn docker:compose:build"
   },
   "dependencies": {
     "@ant-design/icons": "5.3.7",
