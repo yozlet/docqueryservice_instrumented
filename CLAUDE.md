@@ -48,29 +48,57 @@ python3 worldbank_scraper.py --count 100 --output data.sql
 psql -d database_name -f data.sql
 ```
 
-## Development Commands
+## Development Environment
 
-### .NET Backend
+### **🚀 Quick Start (Recommended)**
+
+Use the unified development environment for the easiest local development:
+
 ```bash
-# Setup
-mise activate  # Activate mise environment with .NET SDK
+cd deployment
 
-# Build and run
+# Quick start - automatically start database, backend, and frontend
+./dev.sh start --auto --verbose
+
+# Check status of all services
+./dev.sh status
+
+# Stop all services cleanly
+./dev.sh stop
+```
+
+**Service URLs:**
+- **Frontend**: http://localhost:5173 (React app with document search)
+- **Backend API**: http://localhost:5001 (REST API + Swagger UI)
+- **Database**: localhost:1433 (Azure SQL Edge container)
+
+**📖 Complete Documentation:** [`deployment/UNIFIED-DEV-GUIDE.md`](deployment/UNIFIED-DEV-GUIDE.md)
+
+### **Manual Development Commands**
+
+#### Prerequisites
+```bash
+# Install required tool versions (.NET SDK, Node.js, Yarn)
+mise install
+```
+
+#### .NET Backend
+```bash
+# Setup and run
+mise activate
 cd backend-dotnet
 dotnet build
 dotnet run
 
-# The API will be available at:
-# - http://localhost:5000/api/v3/wds (API endpoints)
-# - http://localhost:5000 (Swagger UI documentation)
+# API available at:
+# - http://localhost:5001/api/v3/wds (API endpoints)
+# - http://localhost:5001 (Swagger UI documentation)
 ```
 
-### React Frontend
+#### React Frontend
 ```bash
-# Setup
-mise activate  # Activate mise environment with Node.js 20 and Yarn 4
-
-# Build and run
+# Setup and run
+mise activate
 cd frontend-react
 yarn install    # Uses security-hardened Yarn configuration
 yarn dev        # Development server on http://localhost:5173
@@ -80,15 +108,15 @@ yarn build
 yarn preview    # Preview production build
 ```
 
-### Testing
+#### Testing
 ```bash
 # Run contract tests against .NET backend
 cd tests
-./run_contract_tests.sh --url http://localhost:5000/api/v3
+./run_contract_tests.sh --url http://localhost:5001/api/v3
 
 # Run specific test suites
-./run_contract_tests.sh --url http://localhost:5000/api/v3 --suite behavioral  # 21/23 passing ✅
-./run_contract_tests.sh --url http://localhost:5000/api/v3 --suite openapi    # 21/22 passing ✅
+./run_contract_tests.sh --url http://localhost:5001/api/v3 --suite behavioral  # 21/23 passing ✅
+./run_contract_tests.sh --url http://localhost:5001/api/v3 --suite openapi    # 21/22 passing ✅
 ```
 
 ## Observability Requirements
@@ -137,6 +165,16 @@ cd tests
 
 ### ✅ Completed Components
 
+**Frontend Application:**
+- ✅ **React Frontend** (`frontend-react/`) - Modern React application with comprehensive features
+  - **Search Interface**: Real-time document search with pagination and filtering
+  - **Security-Hardened Dependencies**: 3-day minimum package age gate protection
+  - **Production Deployment**: nginx configuration with security headers and performance optimization
+  - **Docker Support**: Multi-stage containerization with non-root user security
+  - **Multiple Deployment Options**: Development mode, Docker, Docker Compose, static build
+  - **API Integration**: Full backend integration with error handling and loading states
+  - **📖 Deployment Guide**: [`frontend-react/README.md`](frontend-react/README.md)
+
 **Backend APIs:**
 - ✅ **.NET Backend** (`backend-dotnet/`) - Complete ASP.NET Core Web API
   - World Bank API compatible endpoints (`/api/v3/wds`)
@@ -147,16 +185,29 @@ cd tests
   - **Contract Compliance**: 42/45 tests passing (93% compliance)
     - Behavioral tests: 21/23 passing (91%)
     - OpenAPI tests: 21/22 passing (95%)
+  - **📖 Backend Guide**: [`backend-dotnet/README.md`](backend-dotnet/README.md)
 
-**Infrastructure:**
+**Observability & Telemetry:**
+- ✅ **Honeycomb RUM Instrumentation** - Complete Real User Monitoring implementation
+  - **Automatic Instrumentation**: Page loads, user interactions, API calls
+  - **Custom Business Events**: Document searches, user actions, API errors
+  - **Distributed Tracing**: End-to-end traces from browser to backend
+  - **Performance Monitoring**: Search response times, error rates
+  - **📖 RUM Documentation**: [`frontend-react/HONEYCOMB_RUM.md`](frontend-react/HONEYCOMB_RUM.md)
+
+**Infrastructure & Development:**
 - ✅ **SQL Server Database** with real World Bank document data
 - ✅ **Contract Testing Suite** with comprehensive API validation
-- ✅ **Development Environment** with mise tooling
+- ✅ **Unified Development Environment** with hybrid local setup
+- ✅ **Security-Hardened Package Management** with supply chain attack protection
+- ✅ **Comprehensive Documentation** with deployment guides and troubleshooting
+- ✅ **📖 Development Guide**: [`deployment/UNIFIED-DEV-GUIDE.md`](deployment/UNIFIED-DEV-GUIDE.md)
 
 ### 🚧 In Progress/Planned
-- ⏳ **Java Backend** - Spring Boot implementation (planned)
-- ⏳ **React Frontend** - Document query interface (planned)
-- ⏳ **Deployment Configurations** - Azure + multi-cloud setup (planned)
+- ⏳ **Java Backend** - Spring Boot implementation with identical .NET functionality
+- ⏳ **Multi-Cloud Deployment** - Azure + AWS/GCP hybrid architecture
+- ⏳ **Infrastructure Monitoring** - Server metrics, database performance
+- ⏳ **Synthetic Monitoring** - Uptime checks, API health monitoring
 
 ## 🔒 Security Requirements
 

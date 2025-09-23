@@ -259,38 +259,46 @@ nodeLinker: node-modules
 
 ```
 ├── README.md                    # Main project documentation (this file)
-├── docker-compose.yml           # SQL Server container configuration
+├── CLAUDE.md                    # Claude Code development guide
+├── deployment/                  # Unified development environment
+│   ├── dev.sh                  # Unified script for start/stop/status
+│   ├── UNIFIED-DEV-GUIDE.md    # Complete development guide
+│   ├── docker-compose.database-only.yml  # Database-only Docker setup
+│   └── local-dev.env.template  # Environment configuration template
 ├── scripts/                     # Database and data loading tools
 │   ├── README.md               # Database setup documentation
 │   ├── SCRAPER_README.md       # World Bank scraper documentation
 │   ├── database.py             # Database utilities (pymssql-based)
 │   ├── worldbank_scraper.py    # World Bank API scraper
-│   ├── setup-database.sh       # Automated database setup
-│   └── sql/                    # SQL schema and scripts
-├── frontend-react/             # React frontend application
-│   ├── src/                    # React components and utilities
+│   └── setup-database.sh       # Automated database setup
+├── frontend-react/             # React frontend with RUM instrumentation
+│   ├── src/
 │   │   ├── components/         # UI components (DocumentSearch, etc.)
+│   │   ├── config/             # Environment-based configuration
+│   │   ├── telemetry/          # Honeycomb RUM instrumentation
 │   │   ├── App.tsx            # Main application component
 │   │   └── main.tsx           # Application entry point
-│   ├── nginx.conf             # Production nginx configuration
-│   ├── Dockerfile             # Multi-stage container build
-│   ├── docker-compose.yml     # Full-stack deployment
-│   ├── scripts/deploy.sh      # Interactive deployment script
+│   ├── HONEYCOMB_RUM.md       # OpenTelemetry RUM documentation
+│   ├── README.md              # Frontend deployment guide
 │   ├── .yarnrc.yml           # Security-hardened Yarn configuration
-│   ├── package.json          # Dependencies and scripts
-│   └── README.md             # Frontend deployment documentation
-├── backend-dotnet/             # .NET backend API implementation
-│   ├── Controllers/            # ASP.NET Core API controllers
-│   ├── Models/                 # Data models and DTOs
-│   ├── Services/               # Business logic and data access
-│   ├── Dockerfile              # Container configuration
-│   └── README.md               # .NET backend documentation
-├── tests/                      # Contract tests and API validation
-├── docs/                       # Project documentation
-│   ├── GOALS.md                # Observability demo objectives
-│   ├── WORLDBANK_API.md        # API specification reference
-│   └── openapi.yaml            # OpenAPI specification
-└── [backend-java]              # Future: Java backend API implementation
+│   ├── nginx.conf            # Production nginx configuration
+│   ├── Dockerfile            # Multi-stage container build
+│   └── scripts/deploy.sh     # Interactive deployment script
+├── backend-dotnet/            # .NET backend API implementation
+│   ├── Controllers/           # ASP.NET Core API controllers
+│   ├── Models/               # Data models and DTOs
+│   ├── Services/             # Business logic and data access
+│   ├── README.md             # .NET backend documentation
+│   └── Dockerfile            # Container configuration
+├── tests/                     # Contract tests and API validation
+│   ├── test_api_contract.py   # Behavioral contract tests
+│   ├── test_openapi_contract.py  # OpenAPI spec validation
+│   └── run_contract_tests.sh # Unified test runner
+├── docs/                      # Project documentation
+│   ├── GOALS.md              # Observability demo objectives
+│   ├── WORLDBANK_API.md      # API specification reference
+│   └── openapi.yaml          # OpenAPI specification
+└── [backend-java]            # Future: Java backend API implementation
 ```
 
 ## 🛠️ Current Status
@@ -333,6 +341,17 @@ nodeLinker: node-modules
   - **API Integration**: Full backend integration with error handling and loading states
   - **Responsive Design**: Mobile-first approach with cross-device compatibility
   - **Security Features**: CSP headers, XSS protection, supply chain attack prevention
+  - **📖 Complete Guide**: [`frontend-react/README.md`](frontend-react/README.md)
+
+#### **Real User Monitoring (RUM)**
+- ✅ **Honeycomb OpenTelemetry Web SDK** - Comprehensive frontend telemetry
+  - **Automatic Instrumentation**: Document loads, user interactions, API calls with trace propagation
+  - **Custom Business Events**: Search operations, pagination, document views with performance metrics
+  - **Error Tracking**: API failures, network issues, application errors with detailed context
+  - **User Journey Analytics**: Complete user flow tracking from page load to document access
+  - **Distributed Tracing**: End-to-end traces connecting browser interactions to backend services
+  - **Security-Compliant**: Follows 3-day package age gate policy, no hardcoded credentials
+  - **📖 RUM Documentation**: [`frontend-react/HONEYCOMB_RUM.md`](frontend-react/HONEYCOMB_RUM.md)
 
 #### **Backend APIs**
 - ✅ **.NET Backend API** (`backend-dotnet/`) - Complete ASP.NET Core Web API
