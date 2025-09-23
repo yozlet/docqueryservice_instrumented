@@ -3,6 +3,7 @@ import { Input, Button, Card, Row, Col, Typography, Space, Pagination, Spin, Ale
 import { SearchOutlined } from '@ant-design/icons'
 import axios from 'axios'
 import { config, getConfigSummary } from '../config/environment'
+import { trackDocumentSearch, trackApiError, trackUserAction, createCustomSpan } from '../telemetry/honeycomb'
 
 const { Search } = Input
 const { Title, Text, Paragraph } = Typography
@@ -43,48 +44,134 @@ const DocumentSearch = () => {
   const searchDocuments = async (term: string = '', page: number = 1) => {
     setLoading(true)
     setError(null)
-    
+
+    const searchSpan = createCustomSpan('document_search_operation', {
+      'search.query': term || '(empty)',
+      'search.page': page,
+      'search.page_size': pageSize,
+      'search.offset': (page - 1) * pageSize
+    })
+
+    const startTime = performance.now()
+
     try {
       const params = new URLSearchParams({
         rows: pageSize.toString(),
         os: ((page - 1) * pageSize).toString(),
         format: 'json'
       })
-      
+
       if (term.trim()) {
         params.append('qterm', term.trim())
       }
 
       const response = await axios.get<SearchResponse>(`${API_BASE_URL}/wds?${params}`)
-      
+
       const documentsArray = Object.values(response.data.documents || {})
+      const resultCount = response.data.total || 0
+      const responseTime = performance.now() - startTime
+
       setDocuments(documentsArray)
-      setTotal(response.data.total || 0)
+      setTotal(resultCount)
       setCurrentPage(page)
-    } catch (err) {
-      console.error('Search error:', err)
-      if (axios.isAxiosError(err)) {
-        if (err.code === 'ECONNREFUSED') {
-          setError('Cannot connect to the backend API. Please ensure the .NET backend is running on http://localhost:5001')
-        } else {
-          setError(`API Error: ${err.response?.status} - ${err.response?.statusText || err.message}`)
-        }
-      } else {
-        setError('An unexpected error occurred while searching documents')
+
+      // Track successful search
+      trackDocumentSearch(term, resultCount, responseTime)
+
+      // Add success attributes to span
+      if (searchSpan) {
+        searchSpan.setAttributes({
+          'search.success': true,
+          'search.result_count': resultCount,
+          'search.response_time_ms': responseTime,
+          'search.results_returned': documentsArray.length
+        })
       }
+    } catch (err) {
+      const responseTime = performance.now() - startTime
+      console.error('Search error:', err)
+
+      let errorMessage = 'An unexpected error occurred while searching documents'
+      let statusCode = 0
+
+      if (axios.isAxiosError(err)) {
+        statusCode = err.response?.status || 0
+        if (err.code === 'ECONNREFUSED') {
+          errorMessage = 'Cannot connect to the backend API. Please ensure the .NET backend is running on http://localhost:5001'
+        } else {
+          errorMessage = `API Error: ${err.response?.status} - ${err.response?.statusText || err.message}`
+        }
+
+        // Track API error
+        trackApiError('/wds', 'GET', statusCode, err.message)
+      }
+
+      // Add error attributes to span
+      if (searchSpan) {
+        searchSpan.setAttributes({
+          'search.success': false,
+          'search.error': errorMessage,
+          'search.error_code': statusCode,
+          'search.response_time_ms': responseTime
+        })
+      }
+
+      setError(errorMessage)
     } finally {
+      // End the custom span
+      if (searchSpan) {
+        searchSpan.end()
+      }
       setLoading(false)
     }
   }
 
   const handleSearch = (value: string) => {
+    // Track user search action
+    trackUserAction('search', 'search_input', {
+      query: value || '(empty)',
+      query_length: value.length,
+      has_previous_results: documents.length > 0
+    })
+
     setSearchTerm(value)
     setCurrentPage(1)
     searchDocuments(value, 1)
   }
 
   const handlePageChange = (page: number) => {
+    // Track pagination action
+    trackUserAction('paginate', 'pagination_control', {
+      from_page: currentPage,
+      to_page: page,
+      search_query: searchTerm || '(empty)',
+      total_results: total
+    })
+
     searchDocuments(searchTerm, page)
+  }
+
+  const handleClearSearch = () => {
+    // Track clear search action
+    trackUserAction('clear_search', 'clear_button', {
+      previous_query: searchTerm || '(empty)',
+      had_results: documents.length > 0
+    })
+
+    setSearchTerm('')
+    setCurrentPage(1)
+    searchDocuments('', 1)
+  }
+
+  const handleDocumentView = (doc: Document) => {
+    // Track document view action
+    trackUserAction('view_document', 'document_link', {
+      document_id: doc.id,
+      document_title: doc.title,
+      search_query: searchTerm || '(empty)',
+      result_position: documents.findIndex(d => d.id === doc.id) + 1,
+      page: currentPage
+    })
   }
 
   useEffect(() => {
@@ -122,9 +209,9 @@ const DocumentSearch = () => {
             />
           </Col>
           <Col span={4}>
-            <Button 
-              size="large" 
-              onClick={() => handleSearch('')}
+            <Button
+              size="large"
+              onClick={handleClearSearch}
               disabled={loading}
             >
               Clear
@@ -161,7 +248,13 @@ const DocumentSearch = () => {
                   className="document-card"
                   hoverable
                   actions={doc.url ? [
-                    <Button type="link" href={doc.url} target="_blank" rel="noopener noreferrer">
+                    <Button
+                      type="link"
+                      href={doc.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => handleDocumentView(doc)}
+                    >
                       View Document
                     </Button>
                   ] : undefined}

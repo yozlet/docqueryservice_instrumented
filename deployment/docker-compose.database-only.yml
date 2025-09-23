@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  database:
+    image: mcr.microsoft.com/azure-sql-edge:latest
+    container_name: docquery-database-dev
+    ports:
+      - "1433:1433"
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=DevPassword123!
+      - MSSQL_PID=Developer
+    volumes:
+      - docquery-db-data:/var/opt/mssql
+      - ../scripts/sql:/docker-entrypoint-initdb.d
+    networks:
+      - docquery-dev-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 10s bash -c '</dev/tcp/localhost/1433' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+networks:
+  docquery-dev-network:
+    driver: bridge
+
+volumes:
+  docquery-db-data:
+    driver: local
