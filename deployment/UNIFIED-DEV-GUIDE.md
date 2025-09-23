@@ -10,8 +10,9 @@ The **`dev.sh`** script provides unified management of your hybrid local develop
 cd deployment
 
 # Start services
-./dev.sh start           # Start database only, show manual commands
-./dev.sh start --auto    # Start all services automatically
+./dev.sh start                # Start database only, show manual commands
+./dev.sh start --auto         # Start all services automatically
+./dev.sh start --auto --verbose  # Start all services (recommended - more reliable)
 
 # Monitor services
 ./dev.sh status          # Check status of all services
@@ -29,12 +30,16 @@ cd deployment
 
 #### **Quick Start (Auto Mode)**
 ```bash
-./dev.sh start --auto
+./dev.sh start --auto --verbose    # Recommended - most reliable
+# OR
+./dev.sh start --auto              # May have issues on some systems
 ```
 This automatically starts:
 1. ✅ Database container (Docker)
 2. ✅ Backend API (shell process)
 3. ✅ Frontend dev server (shell process)
+
+**Note**: If `--auto` hangs, use `--verbose` flag for more reliable startup.
 
 #### **Manual Control**
 ```bash
@@ -116,8 +121,8 @@ VITE_API_BASE_URL=http://localhost:5001/api/v3
 ### 🧪 **Testing Your Setup**
 
 ```bash
-# 1. Start everything
-./dev.sh start --auto
+# 1. Start everything (use --verbose for reliability)
+./dev.sh start --auto --verbose
 
 # 2. Check status
 ./dev.sh status
@@ -132,6 +137,13 @@ curl http://localhost:5173/                # Frontend
 ```
 
 ### 🚨 **Troubleshooting**
+
+#### **Auto-Start Issues**
+```bash
+# If ./dev.sh start --auto hangs or fails:
+./dev.sh start --auto --verbose    # Use verbose mode (more reliable)
+./dev.sh start                     # Or use manual mode instead
+```
 
 #### **Port Conflicts**
 ```bash
@@ -156,10 +168,11 @@ docker logs docquery-database-dev  # Direct container logs
 ### 💡 **Tips**
 
 1. **Use `status` frequently** - It shows everything at a glance
-2. **The `--auto` flag** saves time for quick development sessions
-3. **Manual mode** gives you more control for debugging
-4. **Always use `stop`** for clean shutdowns
-5. **Check logs** if services behave unexpectedly
+2. **The `--auto --verbose` combo** is most reliable for automatic startup
+3. **If `--auto` hangs**, use `--verbose` or switch to manual mode
+4. **Manual mode** gives you more control for debugging
+5. **Always use `stop`** for clean shutdowns
+6. **Check logs** if services behave unexpectedly
 
 ### 🔄 **Migration from Old Scripts**
 
