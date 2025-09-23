@@ -38,9 +38,9 @@ This project builds a complete observability solution demo with:
 ### Prerequisites
 - **Docker** with Docker Compose
 - **Python 3.9+**
+- **mise** tool manager ([installation guide](https://mise.jdx.dev/getting-started.html))
 - **Node.js 20** (managed via mise for security)
 - **Yarn 4.10.2** (managed via mise, with security hardening)
-- **mise** tool manager (for .NET SDK and Node.js management)
 - **.NET 9.0 SDK** (managed via mise)
 
 ### 1. Database Setup
@@ -51,6 +51,9 @@ Start the SQL Server database and load sample documents:
 # Clone the repository
 git clone <repository-url>
 cd docqueryservice_instrumented
+
+# Install required tool versions (.NET SDK, Node.js, Yarn)
+mise install
 
 # Start database and load sample data
 cd scripts
@@ -92,10 +95,54 @@ python3 worldbank_scraper.py --country "Brazil" --count 50 --database
 python3 worldbank_scraper.py --count 2000 --database
 ```
 
-### 4. Run the .NET Backend
+### 4. Unified Local Development (Recommended)
+
+For the easiest local development experience, use the unified development script that manages all services:
 
 ```bash
-# Setup .NET environment
+cd deployment
+
+# Quick start - automatically start database, backend, and frontend
+./dev.sh start --auto --verbose
+
+# Check status of all services
+./dev.sh status
+
+# Stop all services cleanly
+./dev.sh stop
+```
+
+**Service URLs:**
+- **Frontend**: http://localhost:5173 (React app with document search)
+- **Backend API**: http://localhost:5001 (REST API + Swagger UI)
+- **Database**: localhost:1433 (Azure SQL Edge container)
+
+**Manual Control:**
+```bash
+# Start database only, show manual commands for backend/frontend
+./dev.sh start
+
+# Check service status
+./dev.sh status
+
+# View database logs
+./dev.sh logs
+
+# Get help
+./dev.sh help
+```
+
+**📖 For complete documentation:** See [`deployment/UNIFIED-DEV-GUIDE.md`](deployment/UNIFIED-DEV-GUIDE.md)
+
+### 5. Manual Component Setup
+
+If you prefer to run components individually:
+
+#### Run the .NET Backend
+
+```bash
+# Setup .NET environment (install tools if needed)
+mise install
 mise activate
 
 # Build and run the .NET API
@@ -115,6 +162,7 @@ The frontend provides a comprehensive document search interface with real-time r
 #### Development Mode
 ```bash
 # Setup Node.js environment (with security-hardened Yarn 4.10.2)
+mise install
 mise activate
 
 # Install dependencies (respects 3-day minimum age security policy)
