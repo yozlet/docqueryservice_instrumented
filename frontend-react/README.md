@@ -53,7 +53,7 @@ yarn docker:compose:build
 
 **Services:**
 - Frontend: `http://localhost:3000` (nginx serving React build)
-- Backend: `http://localhost:5000` (.NET API)
+- Backend: `http://localhost:5001` (.NET API)
 
 ### Option 2: Docker (Frontend Only)
 For custom backend deployments:
@@ -153,7 +153,7 @@ add_header Content-Security-Policy "..." always;
 ## 🔌 API Integration
 
 ### Backend Communication
-- **Base URL**: `http://localhost:5000/api/v3`
+- **Base URL**: `http://localhost:5001/api/v3`
 - **World Bank Compatibility**: Implements World Bank Documents API specification
 - **Error Handling**: Comprehensive error states and user feedback
 - **Loading States**: Real-time loading indicators

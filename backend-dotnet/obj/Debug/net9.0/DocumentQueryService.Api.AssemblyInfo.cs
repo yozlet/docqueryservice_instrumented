@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("DocumentQueryService.Api")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+4593c01e7dc1304f2d57cbfa9ad147b5725dffca")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+ad26d3ff6227b97bdd5e4c1d7bbd33bb64cf23d9")]
 [assembly: System.Reflection.AssemblyProductAttribute("DocumentQueryService.Api")]
 [assembly: System.Reflection.AssemblyTitleAttribute("DocumentQueryService.Api")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

@@ -37,7 +37,7 @@ const DocumentSearch = () => {
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize] = useState(10)
 
-  const API_BASE_URL = 'http://localhost:5000/api/v3'
+  const API_BASE_URL = 'http://localhost:5001/api/v3'
 
   const searchDocuments = async (term: string = '', page: number = 1) => {
     setLoading(true)
@@ -64,7 +64,7 @@ const DocumentSearch = () => {
       console.error('Search error:', err)
       if (axios.isAxiosError(err)) {
         if (err.code === 'ECONNREFUSED') {
-          setError('Cannot connect to the backend API. Please ensure the .NET backend is running on http://localhost:5000')
+          setError('Cannot connect to the backend API. Please ensure the .NET backend is running on http://localhost:5001')
         } else {
           setError(`API Error: ${err.response?.status} - ${err.response?.statusText || err.message}`)
         }

@@ -6,6 +6,9 @@ using DocumentQueryService.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Configure URLs (use port 5001 to avoid conflict with macOS Control Center on 5000)
+builder.WebHost.UseUrls("http://localhost:5001");
+
 // Add services to the container.
 builder.Services.AddControllers();
 

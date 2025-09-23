@@ -104,8 +104,8 @@ dotnet build
 dotnet run
 
 # The API will be available at:
-# - http://localhost:5000/api/v3/wds (World Bank API endpoints)
-# - http://localhost:5000 (Interactive Swagger UI documentation)
+# - http://localhost:5001/api/v3/wds (World Bank API endpoints)
+# - http://localhost:5001 (Interactive Swagger UI documentation)
 ```
 
 ### 5. Run the React Frontend
@@ -132,7 +132,7 @@ yarn dev  # Runs on http://localhost:5173
 cd frontend-react
 yarn deploy:local
 # Frontend: http://localhost:3000
-# Backend: http://localhost:5000
+# Backend: http://localhost:5001
 ```
 
 **Option 2: Docker (Frontend Only)**
@@ -160,12 +160,12 @@ cd frontend-react
 ```bash
 # Run comprehensive contract tests
 cd tests
-./run_contract_tests.sh --url http://localhost:5000/api/v3
+./run_contract_tests.sh --url http://localhost:5001/api/v3
 
 # Test specific endpoints manually
-curl "http://localhost:5000/api/v3/wds?rows=5"
-curl "http://localhost:5000/api/v3/wds?qterm=energy&format=xml"
-curl "http://localhost:5000/api/v3/wds/health"
+curl "http://localhost:5001/api/v3/wds?rows=5"
+curl "http://localhost:5001/api/v3/wds?qterm=energy&format=xml"
+curl "http://localhost:5001/api/v3/wds/health"
 ```
 
 ## 🔒 Security Best Practices
@@ -337,7 +337,7 @@ python3 worldbank_scraper.py --count 100 --output documents.sql
 mise activate                           # Activate .NET SDK environment
 cd backend-dotnet
 dotnet build                            # Build the project
-dotnet run                              # Start the API server (http://localhost:5000)
+dotnet run                              # Start the API server (http://localhost:5001)
 
 # Available endpoints:
 # - GET /api/v3/wds                     # Search documents with pagination
@@ -374,17 +374,17 @@ yarn dev                              # Start development server (http://localho
 ```bash
 # Run comprehensive API contract tests against .NET backend
 cd tests
-./run_contract_tests.sh --url http://localhost:5000/api/v3
+./run_contract_tests.sh --url http://localhost:5001/api/v3
 
 # Run specific test suites
-./run_contract_tests.sh --url http://localhost:5000/api/v3 --suite behavioral  # 21/23 ✅
-./run_contract_tests.sh --url http://localhost:5000/api/v3 --suite openapi     # 21/22 ✅
+./run_contract_tests.sh --url http://localhost:5001/api/v3 --suite behavioral  # 21/23 ✅
+./run_contract_tests.sh --url http://localhost:5001/api/v3 --suite openapi     # 21/22 ✅
 
 # Run with verbose output and custom categories
 ./run_contract_tests.sh --suite behavioral --category consistency,quality
 
 # Generate detailed test reports (HTML + JSON)
-./run_contract_tests.sh --url http://localhost:5000/api/v3 --report-dir ./reports
+./run_contract_tests.sh --url http://localhost:5001/api/v3 --report-dir ./reports
 ```
 
 ### Configuration
