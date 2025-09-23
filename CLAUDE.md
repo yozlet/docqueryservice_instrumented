@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **IMPORTANT**: Always reference `docs/GOALS.md` for the complete project goals and architecture. Keep that file updated with any architectural decisions made during implementation.
 
+**DOCUMENTATION MAINTENANCE**: When creating new documentation files (guides, README files, configuration docs, etc.), **always update this CLAUDE.md file** to reference the new documentation. This ensures future Claude Code sessions can discover and utilize all available documentation.
+
 This is an **observability solution demo** project that builds a hybrid full-stack application to demonstrate comprehensive monitoring capabilities using OpenTelemetry and Honeycomb.io.
 
 ## Architecture Overview
@@ -34,18 +36,54 @@ The project uses a SQL database with the schema defined in:
 - **[docs/schema.sql](docs/schema.sql)** - Complete database schema
 - **[docs/sample_data.sql](docs/sample_data.sql)** - Sample data for development
 
+### Automated Database Initialization
+
+The `deployment/dev.sh` script automatically handles database setup for new developers:
+
+1. **Creates DocQueryService database** if it doesn't exist
+2. **Creates documents table** with proper schema
+3. **Loads sample data** from World Bank API scraper
+4. **Handles dependencies** (installs pymssql if needed)
+5. **Provides fallback instructions** if automatic setup fails
+
+The initialization runs automatically when you start the development environment:
+```bash
+cd deployment
+./dev.sh start --auto  # Includes automatic database setup
+```
+
+### Manual Database Setup
+
+If automatic initialization fails, use these manual steps:
+```bash
+# 1. Setup database and schema
+cd scripts
+python3 database.py
+
+# 2. Load sample data
+python3 worldbank_scraper.py --count 25 --database
+
+# 3. Verify setup
+curl "http://localhost:5001/api/v3/wds?format=json&rows=5"
+```
+
 ## Data Population
 
 Use the World Bank API scraper to populate the database with real document data:
 - **[scripts/worldbank_scraper.py](scripts/worldbank_scraper.py)** - Python scraper that fetches real World Bank documents and generates SQL INSERT statements
+- **[scripts/database.py](scripts/database.py)** - Database setup and connection utilities
 - **[scripts/README.md](scripts/README.md)** - Complete usage documentation for the scraper
 
-Example usage:
+The scraper supports both direct database insertion and SQL file generation:
 ```bash
 cd scripts
 pip3 install -r requirements.txt
+
+# Direct database insertion (preferred)
+python3 worldbank_scraper.py --count 100 --database
+
+# Generate SQL file (fallback)
 python3 worldbank_scraper.py --count 100 --output data.sql
-psql -d database_name -f data.sql
 ```
 
 ## Development Environment
@@ -188,12 +226,15 @@ cd tests
   - **📖 Backend Guide**: [`backend-dotnet/README.md`](backend-dotnet/README.md)
 
 **Observability & Telemetry:**
-- ✅ **Honeycomb RUM Instrumentation** - Complete Real User Monitoring implementation
-  - **Automatic Instrumentation**: Page loads, user interactions, API calls
-  - **Custom Business Events**: Document searches, user actions, API errors
-  - **Distributed Tracing**: End-to-end traces from browser to backend
-  - **Performance Monitoring**: Search response times, error rates
+- ✅ **Complete End-to-End OpenTelemetry Instrumentation** - Full distributed tracing from frontend to backend
+  - **Frontend RUM**: Honeycomb Web SDK captures page loads, user interactions, API calls with trace propagation
+  - **Backend Telemetry**: .NET OpenTelemetry with ASP.NET Core, SQL Client, and custom business logic instrumentation
+  - **Unified Datasets**: `docquery-frontend` and `docquery-backend` in Honeycomb for correlated analysis
+  - **Custom Business Events**: Document searches, user actions, API errors, database operations
+  - **Error Tracking**: Full exception traces with distributed context propagation
+  - **Performance Monitoring**: End-to-end request tracking, database query performance, search response times
   - **📖 RUM Documentation**: [`frontend-react/HONEYCOMB_RUM.md`](frontend-react/HONEYCOMB_RUM.md)
+  - **📖 Environment Template**: [`deployment/local-dev.env.template`](deployment/local-dev.env.template)
 
 **Infrastructure & Development:**
 - ✅ **SQL Server Database** with real World Bank document data

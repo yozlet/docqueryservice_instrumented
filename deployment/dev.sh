@@ -202,8 +202,157 @@ start_database() {
         [ "$QUIET" != true ] && echo -n "."
     done
     [ "$QUIET" != true ] && echo
+
+    # Additional wait for SQL Server to be fully ready for connections
+    log "Waiting for SQL Server to accept connections..."
+    elapsed=0
+    while [ $elapsed -lt 30 ]; do
+        # Use a simple connection test that doesn't require pymssql
+        if timeout 3 bash -c "</dev/tcp/localhost/1433" >/dev/null 2>&1; then
+            # Give SQL Server a bit more time to fully initialize after port is open
+            sleep 5
+            break
+        fi
+        sleep 2
+        elapsed=$((elapsed + 2))
+        [ "$QUIET" != true ] && echo -n "."
+    done
+    [ "$QUIET" != true ] && echo
     success "Database is ready ✓"
+
+    # Initialize database schema and data
+    init_database
     return 0
+}
+
+# Initialize database with schema and sample data
+init_database() {
+    log "Initializing database schema and data..."
+
+    # Check if python3 is available
+    if ! command -v python3 >/dev/null 2>&1; then
+        warn "Python3 not found. Skipping database initialization."
+        warn "You may need to manually run: cd scripts && python3 database.py"
+        return 0
+    fi
+
+    # Check if pymssql is available
+    if ! python3 -c "import pymssql" >/dev/null 2>&1; then
+        warn "pymssql not installed. Installing database requirements..."
+        if [ -f "../scripts/database_requirements.txt" ]; then
+            pip3 install -r ../scripts/database_requirements.txt >/dev/null 2>&1 || {
+                warn "Failed to install database requirements automatically."
+                warn "You may need to run: pip3 install pymssql"
+            }
+        fi
+    fi
+
+    # Run database initialization
+    local init_output
+    if init_output=$(cd ../scripts && python3 -c "
+import pymssql
+import sys
+try:
+    conn = pymssql.connect('localhost:1433', 'sa', 'DevPassword123!', timeout=30)
+    cursor = conn.cursor()
+
+    # Check if DocQueryService database exists
+    cursor.execute(\"SELECT COUNT(*) FROM sys.databases WHERE name = 'DocQueryService'\")
+    if cursor.fetchone()[0] == 0:
+        print('Creating DocQueryService database...')
+        conn.autocommit(True)
+        cursor.execute('CREATE DATABASE DocQueryService')
+        conn.autocommit(False)
+
+    # Switch to DocQueryService database
+    conn.close()
+    conn = pymssql.connect('localhost:1433', 'sa', 'DevPassword123!', 'DocQueryService', timeout=30)
+    cursor = conn.cursor()
+
+    # Check if documents table exists
+    cursor.execute(\"SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'documents'\")
+    if cursor.fetchone()[0] == 0:
+        print('Creating documents table...')
+        cursor.execute('''
+            CREATE TABLE documents (
+                id NVARCHAR(255) PRIMARY KEY,
+                title NTEXT NOT NULL,
+                docdt DATE,
+                created_at DATETIME2 DEFAULT GETDATE(),
+                updated_at DATETIME2 DEFAULT GETDATE(),
+                abstract NTEXT,
+                docty NVARCHAR(100),
+                majdocty NVARCHAR(100),
+                volnb INT,
+                totvolnb INT,
+                url NVARCHAR(2048),
+                lang NVARCHAR(10),
+                country NVARCHAR(100),
+                author NVARCHAR(500),
+                publisher NVARCHAR(500),
+                content_text NTEXT
+            )
+        ''')
+        conn.commit()
+
+    # Check if we have documents
+    cursor.execute('SELECT COUNT(*) FROM documents')
+    count = cursor.fetchone()[0]
+
+    if count == 0:
+        print('No documents found. Loading sample data...')
+        # Insert a few sample documents directly
+        sample_docs = [
+            ('34442285', 'Official Documents- Amendment No. 2 to the GPE Grant Agreement', '2026-12-31',
+             'Agreement', 'Project Documents', 'https://documents.worldbank.org/example1.pdf',
+             'English', 'Ghana', 'Official Documents- Amendment No. 2 to the GPE Grant Agreement'),
+            ('34442292', 'Official Documents- Loan Agreement for Loan 9619-BR', '2026-12-31',
+             'Loan Agreement', 'Project Documents', 'https://documents.worldbank.org/example2.pdf',
+             'English', 'Brazil', 'Official Documents- Loan Agreement for Loan 9619-BR'),
+            ('40045555', 'Costa Rica - Fiscal Management Improvement Project - Procurement Plan', '2025-09-22',
+             'Procurement Plan', 'Project Documents', 'https://documents.worldbank.org/example3.pdf',
+             'English', 'Costa Rica', 'Costa Rica - Fiscal Management Improvement Project - Procurement Plan')
+        ]
+
+        inserted = 0
+        for doc in sample_docs:
+            try:
+                cursor.execute('''
+                    INSERT INTO documents (id, title, docdt, docty, majdocty, url, lang, country, content_text)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ''', doc)
+                conn.commit()
+                inserted += 1
+            except Exception as e:
+                print(f'Failed to insert document {doc[0]}: {e}')
+
+        print(f'Loaded {inserted} sample documents')
+    else:
+        print(f'Database ready with {count} documents')
+
+    conn.close()
+    print('Database initialization completed successfully')
+
+except ImportError:
+    print('ERROR: pymssql not available. Install with: pip3 install pymssql')
+    sys.exit(1)
+except Exception as e:
+    print(f'ERROR: Database initialization failed: {e}')
+    sys.exit(1)
+" 2>&1); then
+        # Success case - show minimal output
+        if echo "$init_output" | grep -q "ERROR:"; then
+            warn "Database initialization had some issues:"
+            echo "$init_output" | grep "ERROR:" || true
+        else
+            success "Database initialized ✓"
+            [ "$VERBOSE" = true ] && echo "$init_output"
+        fi
+    else
+        warn "Database initialization failed. Backend may return errors until database is set up."
+        warn "To fix manually, run: cd scripts && python3 database.py && python3 worldbank_scraper.py --count 25 --database"
+        [ "$VERBOSE" = true ] && echo "$init_output"
+    fi
 }
 
 # Stop database
