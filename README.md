@@ -108,7 +108,54 @@ dotnet run
 # - http://localhost:5000 (Interactive Swagger UI documentation)
 ```
 
-### 5. Test the API
+### 5. Run the React Frontend
+
+The frontend provides a comprehensive document search interface with real-time results, pagination, and rich metadata display.
+
+#### Development Mode
+```bash
+# Setup Node.js environment (with security-hardened Yarn 4.10.2)
+mise activate
+
+# Install dependencies (respects 3-day minimum age security policy)
+cd frontend-react
+yarn install
+
+# Start development server
+yarn dev  # Runs on http://localhost:5173
+```
+
+#### Production Deployment
+
+**Option 1: Docker Compose (Full Stack - Recommended)**
+```bash
+cd frontend-react
+yarn deploy:local
+# Frontend: http://localhost:3000
+# Backend: http://localhost:5000
+```
+
+**Option 2: Docker (Frontend Only)**
+```bash
+cd frontend-react
+yarn docker:build
+yarn docker:run
+# Frontend: http://localhost:3000
+```
+
+**Option 3: Static Build (for CDN/nginx)**
+```bash
+cd frontend-react
+yarn build  # Creates dist/ directory
+```
+
+**Option 4: Interactive Deployment**
+```bash
+cd frontend-react
+./scripts/deploy.sh  # Guided deployment process
+```
+
+### 6. Test the API
 
 ```bash
 # Run comprehensive contract tests
@@ -167,11 +214,23 @@ nodeLinker: node-modules
 ├── docker-compose.yml           # SQL Server container configuration
 ├── scripts/                     # Database and data loading tools
 │   ├── README.md               # Database setup documentation
-│   ├── SCRAPER_README.md       # World Bank scraper documentation  
+│   ├── SCRAPER_README.md       # World Bank scraper documentation
 │   ├── database.py             # Database utilities (pymssql-based)
 │   ├── worldbank_scraper.py    # World Bank API scraper
 │   ├── setup-database.sh       # Automated database setup
 │   └── sql/                    # SQL schema and scripts
+├── frontend-react/             # React frontend application
+│   ├── src/                    # React components and utilities
+│   │   ├── components/         # UI components (DocumentSearch, etc.)
+│   │   ├── App.tsx            # Main application component
+│   │   └── main.tsx           # Application entry point
+│   ├── nginx.conf             # Production nginx configuration
+│   ├── Dockerfile             # Multi-stage container build
+│   ├── docker-compose.yml     # Full-stack deployment
+│   ├── scripts/deploy.sh      # Interactive deployment script
+│   ├── .yarnrc.yml           # Security-hardened Yarn configuration
+│   ├── package.json          # Dependencies and scripts
+│   └── README.md             # Frontend deployment documentation
 ├── backend-dotnet/             # .NET backend API implementation
 │   ├── Controllers/            # ASP.NET Core API controllers
 │   ├── Models/                 # Data models and DTOs
@@ -215,6 +274,18 @@ nodeLinker: node-modules
 - **Database schema documentation** with entity relationships
 - **Cross-platform compatibility** notes (especially ARM64/Apple Silicon)
 
+#### **Frontend Application**
+- ✅ **React Frontend** (`frontend-react/`) - Modern React application with TypeScript
+  - **Search Interface**: Real-time document search with pagination and filtering
+  - **Rich UI Components**: Ant Design 5.19.4 for professional interface design
+  - **Security-Hardened Dependencies**: 3-day minimum package age gate protection
+  - **Production Deployment**: nginx configuration with security headers and performance optimization
+  - **Docker Support**: Multi-stage containerization with non-root user security
+  - **Multiple Deployment Options**: Development mode, Docker, Docker Compose, static build
+  - **API Integration**: Full backend integration with error handling and loading states
+  - **Responsive Design**: Mobile-first approach with cross-device compatibility
+  - **Security Features**: CSP headers, XSS protection, supply chain attack prevention
+
 #### **Backend APIs**
 - ✅ **.NET Backend API** (`backend-dotnet/`) - Complete ASP.NET Core Web API
   - World Bank API compatible endpoints (`GET /api/v3/wds`)
@@ -231,8 +302,8 @@ nodeLinker: node-modules
 
 ### 🚧 **In Development**
 
-- **Frontend React application** for document search and browsing
 - **Java backend API** with identical functionality to .NET version
+- **OpenTelemetry RUM instrumentation** for frontend real user monitoring
 - **Deployment configurations** for Azure App Services and multi-cloud setup
 - **Honeycomb.io integration** for unified observability platform
 
@@ -274,6 +345,28 @@ dotnet run                              # Start the API server (http://localhost
 # - GET /api/v3/wds/facets             # Get search facets for filtering
 # - GET /api/v3/wds/health             # Health check endpoint
 # - GET / (root)                       # Interactive Swagger UI documentation
+```
+
+### Frontend Development
+
+```bash
+# React Frontend (Development Mode)
+mise activate                           # Activate Node.js 20 + Yarn 4.10.2 environment
+cd frontend-react
+yarn install                           # Install dependencies (respects security policies)
+yarn dev                              # Start development server (http://localhost:5173)
+
+# Available development scripts:
+# - yarn build                         # Production build
+# - yarn lint                          # ESLint with TypeScript
+# - yarn preview                       # Preview production build
+# - yarn security-check               # Security audit and outdated packages
+
+# Production deployment scripts:
+# - yarn deploy:local                  # Full-stack Docker Compose deployment
+# - yarn docker:build                 # Build Docker image
+# - yarn docker:run                   # Run containerized frontend
+# - ./scripts/deploy.sh               # Interactive deployment wizard
 ```
 
 ### Testing
@@ -360,6 +453,6 @@ This project is designed for educational and demonstration purposes, showcasing 
 
 ---
 
-**Status**: 🟢 .NET backend API complete with 93% World Bank API contract compliance
+**Status**: 🟢 Full-stack application complete with React frontend and .NET backend (93% API compliance)
 
-**Next Milestone**: Java backend API implementation and React frontend development
+**Next Milestone**: Java backend API implementation and OpenTelemetry RUM instrumentation
