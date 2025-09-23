@@ -6,6 +6,7 @@ import { DocumentLoadInstrumentation } from '@opentelemetry/instrumentation-docu
 import { UserInteractionInstrumentation } from '@opentelemetry/instrumentation-user-interaction'
 import { FetchInstrumentation } from '@opentelemetry/instrumentation-fetch'
 import { XMLHttpRequestInstrumentation } from '@opentelemetry/instrumentation-xml-http-request'
+import { trace } from '@opentelemetry/api'
 import { config } from '../config/environment'
 
 let sdk: HoneycombWebSDK | null = null
@@ -104,7 +105,6 @@ export const shutdownTelemetry = async (): Promise<void> => {
 export const addCustomAttribute = (key: string, value: string | number | boolean): void => {
   try {
     // Get active span and add attribute
-    const { trace } = require('@opentelemetry/api')
     const activeSpan = trace.getActiveSpan()
     if (activeSpan) {
       activeSpan.setAttribute(key, value)
@@ -117,7 +117,6 @@ export const addCustomAttribute = (key: string, value: string | number | boolean
 // Create custom spans for business logic tracking
 export const createCustomSpan = (name: string, attributes: Record<string, string | number | boolean> = {}) => {
   try {
-    const { trace } = require('@opentelemetry/api')
     const tracer = trace.getTracer('docquery-frontend')
 
     return tracer.startSpan(name, {
