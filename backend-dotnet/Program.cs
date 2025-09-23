@@ -7,7 +7,11 @@ using DocumentQueryService.Api.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 // Configure URLs (use port 5001 to avoid conflict with macOS Control Center on 5000)
-builder.WebHost.UseUrls("http://localhost:5001");
+// In Docker: listen on all interfaces, outside Docker: listen on localhost only
+var urls = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Production"
+    ? "http://0.0.0.0:5001"
+    : "http://localhost:5001";
+builder.WebHost.UseUrls(urls);
 
 // Add services to the container.
 builder.Services.AddControllers();
