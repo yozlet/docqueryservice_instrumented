@@ -237,13 +237,13 @@ stop_backend() {
 
 # Stop frontend processes
 stop_frontend() {
-    local pids=$(pgrep -f "vite.*serve" 2>/dev/null || true)
+    local pids=$(pgrep -f "vite/bin/vite.js" 2>/dev/null || true)
     if [ -n "$pids" ]; then
         log "Stopping frontend processes..."
         echo $pids | xargs kill 2>/dev/null || true
         sleep 2
         # Force kill if still running
-        local remaining=$(pgrep -f "vite.*serve" 2>/dev/null || true)
+        local remaining=$(pgrep -f "vite/bin/vite.js" 2>/dev/null || true)
         if [ -n "$remaining" ]; then
             echo $remaining | xargs kill -9 2>/dev/null || true
         fi
@@ -311,7 +311,7 @@ show_service_urls() {
     local frontend_port=""
     for port in 5173 5174 5175 5176 5177; do
         if port_in_use $port; then
-            if pgrep -f "vite.*serve" >/dev/null 2>&1; then
+            if pgrep -f "vite/bin/vite.js" >/dev/null 2>&1; then
                 frontend_port=$port
                 break
             fi
@@ -417,7 +417,7 @@ cmd_status() {
     # Check frontend (try common ports)
     local frontend_running=false
     for port in 5173 5174 5175 5176 5177; do
-        if port_in_use $port && pgrep -f "vite.*serve" >/dev/null 2>&1; then
+        if port_in_use $port && pgrep -f "vite/bin/vite.js" >/dev/null 2>&1; then
             check_service_status "frontend" $port "Frontend (React + Vite)"
             frontend_running=true
             break
