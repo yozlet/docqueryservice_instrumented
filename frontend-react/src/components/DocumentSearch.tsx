@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Input, Button, Card, Row, Col, Typography, Space, Pagination, Spin, Alert, Tag } from 'antd'
 import { SearchOutlined } from '@ant-design/icons'
 import axios from 'axios'
+import { config, getConfigSummary } from '../config/environment'
 
 const { Search } = Input
 const { Title, Text, Paragraph } = Typography
@@ -37,7 +38,7 @@ const DocumentSearch = () => {
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize] = useState(10)
 
-  const API_BASE_URL = 'http://localhost:5001/api/v3'
+  const API_BASE_URL = config.apiBaseUrl
 
   const searchDocuments = async (term: string = '', page: number = 1) => {
     setLoading(true)
@@ -87,6 +88,8 @@ const DocumentSearch = () => {
   }
 
   useEffect(() => {
+    // Log configuration for debugging
+    console.log('Document Search Configuration:', getConfigSummary())
     searchDocuments()
   }, [])
 

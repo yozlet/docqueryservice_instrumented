@@ -31,8 +31,9 @@ RUN apk add --no-cache curl
 # Copy built application from builder stage
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Copy nginx configuration
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Copy nginx configuration template and static config
+COPY nginx.conf.template /etc/nginx/templates/default.conf.template
+COPY nginx.conf /etc/nginx/conf.d/nginx.conf.backup
 
 # Remove default nginx configuration
 RUN rm /etc/nginx/conf.d/default.conf.bak 2>/dev/null || true

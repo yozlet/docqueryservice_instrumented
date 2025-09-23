@@ -1,0 +1,80 @@
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: ../frontend-react
+      dockerfile: Dockerfile
+      args:
+        - NODE_ENV=production
+    container_name: docquery-frontend-prod
+    ports:
+      - "80:8080"
+    environment:
+      # Nginx configuration
+      - NGINX_PORT=8080
+      - SERVER_NAME=${FRONTEND_DOMAIN:-localhost}
+      - BACKEND_HOST=${BACKEND_HOST:-docquery-backend-prod}
+      - BACKEND_PORT=${BACKEND_PORT:-5001}
+      - CORS_ORIGIN=${FRONTEND_URL:-http://localhost}
+      - ALLOWED_CONNECT_ORIGINS=${BACKEND_URL:-http://localhost:5001}
+
+      # React app configuration (build-time)
+      - VITE_ENVIRONMENT=production
+      - VITE_API_BASE_URL=/api/v3
+      - VITE_ENABLE_METRICS=${ENABLE_METRICS:-true}
+      - VITE_HONEYCOMB_API_KEY=${HONEYCOMB_API_KEY}
+      - VITE_HONEYCOMB_DATASET=${HONEYCOMB_FRONTEND_DATASET:-docquery-frontend-prod}
+    networks:
+      - docquery-prod-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  backend:
+    build:
+      context: ../backend-dotnet
+      dockerfile: Dockerfile
+    container_name: docquery-backend-prod
+    ports:
+      - "5001:5001"
+    environment:
+      # ASP.NET Core configuration
+      - ASPNETCORE_ENVIRONMENT=Production
+      - LISTEN_HOST=0.0.0.0
+      - LISTEN_PORT=5001
+
+      # Database configuration
+      - DATABASE_CONNECTION_STRING=${DATABASE_CONNECTION_STRING}
+      - DB_SERVER=${DB_SERVER:-localhost}
+      - DB_PORT=${DB_PORT:-1433}
+      - DB_DATABASE=${DB_DATABASE:-DocQueryService}
+      - DB_USERNAME=${DB_USERNAME:-sa}
+      - DB_PASSWORD=${DB_PASSWORD}
+
+      # OpenTelemetry configuration
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_ENDPOINT}
+      - OTEL_EXPORTER_OTLP_HEADERS=${OTEL_HEADERS}
+      - OTEL_SERVICE_NAME=docquery-backend-prod
+      - OTEL_RESOURCE_ATTRIBUTES=service.version=1.0.0,deployment.environment=production
+    networks:
+      - docquery-prod-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:5001/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  docquery-prod-network:
+    driver: bridge
+
+volumes:
+  nginx-cache:
+    driver: local

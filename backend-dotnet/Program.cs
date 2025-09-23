@@ -6,19 +6,41 @@ using DocumentQueryService.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Configure URLs (use port 5001 to avoid conflict with macOS Control Center on 5000)
-// In Docker: listen on all interfaces, outside Docker: listen on localhost only
-var urls = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Production"
-    ? "http://0.0.0.0:5001"
-    : "http://localhost:5001";
+// Configure URLs - fully configurable via environment variables
+var listenHost = Environment.GetEnvironmentVariable("LISTEN_HOST") ?? "localhost";
+var listenPort = Environment.GetEnvironmentVariable("LISTEN_PORT") ?? "5001";
+
+// In production environments, default to listening on all interfaces
+if (builder.Environment.IsProduction() || Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Production")
+{
+    listenHost = Environment.GetEnvironmentVariable("LISTEN_HOST") ?? "0.0.0.0";
+}
+
+var urls = $"http://{listenHost}:{listenPort}";
 builder.WebHost.UseUrls(urls);
+
+Console.WriteLine($"Backend will listen on: {urls}");
 
 // Add services to the container.
 builder.Services.AddControllers();
 
-// Add database connection
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
-    ?? "Server=localhost,1433;Database=DocQueryService;User Id=sa;Password=DevPassword123!;TrustServerCertificate=true;";
+// Add database connection - fully configurable via environment variables
+var connectionString = Environment.GetEnvironmentVariable("DATABASE_CONNECTION_STRING")
+    ?? builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? BuildDefaultConnectionString();
+
+static string BuildDefaultConnectionString()
+{
+    var server = Environment.GetEnvironmentVariable("DB_SERVER") ?? "localhost";
+    var port = Environment.GetEnvironmentVariable("DB_PORT") ?? "1433";
+    var database = Environment.GetEnvironmentVariable("DB_DATABASE") ?? "DocQueryService";
+    var username = Environment.GetEnvironmentVariable("DB_USERNAME") ?? "sa";
+    var password = Environment.GetEnvironmentVariable("DB_PASSWORD") ?? "DevPassword123!";
+
+    return $"Server={server},{port};Database={database};User Id={username};Password={password};TrustServerCertificate=true;";
+}
+
+Console.WriteLine($"Database server: {connectionString.Split(';')[0]}");
 builder.Services.AddScoped<SqlConnection>(_ => new SqlConnection(connectionString));
 
 // Add our services
