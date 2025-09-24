@@ -95,5 +95,6 @@ class DocumentSearchResponse(BaseModel):
     model_config = {
         'protected_namespaces': ()
     }
-    total_results: int = Field(..., description="Total number of matching documents")
-    documents: List[Document] = Field(..., description="List of matching documents")
+    results: List[Document] = Field(..., description="List of matching documents")
+    result_count: int = Field(..., description="Total number of matching documents")
+    search_time_ms: int = Field(..., description="Time taken to perform the search in milliseconds")
