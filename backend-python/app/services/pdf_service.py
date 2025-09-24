@@ -64,7 +64,6 @@ class PDFService:
                     try:
                         reader = PdfReader(pdf_path)
                         text = ""
-                        print(f">>> pages to extract: {len(reader.pages)}")
                         tokens = 0
                         for page in reader.pages:
                             text += page.extract_text() + "\n"

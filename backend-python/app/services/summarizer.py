@@ -62,7 +62,7 @@ class DocumentSummarizer:
             chain_type="stuff",
             prompt=self.prompt_template,
             document_variable_name="text",  # This tells the chain to use "text" as the variable name
-            verbose=True
+            verbose=False
         )
         
         # Generate summary
