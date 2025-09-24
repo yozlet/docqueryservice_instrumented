@@ -173,8 +173,8 @@ class DatabaseManager:
                 sql = """
                 INSERT INTO documents (
                     id, title, docdt, abstract, docty, majdocty, 
-                    volnb, totvolnb, url, lang, country, author, publisher
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    volnb, totvolnb, url, document_location, document_status, lang, country, author, publisher
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """
                 
                 # Convert date string to date object if needed
@@ -198,6 +198,8 @@ class DatabaseManager:
                     doc_data.get('volnb'),
                     doc_data.get('totvolnb'), 
                     doc_data.get('url', '')[:2048] if doc_data.get('url') else None,
+                    doc_data.get('document_location', '')[:1024] if doc_data.get('document_location') else None,
+                    doc_data.get('document_status', 'PENDING')[:50],
                     doc_data.get('lang', '')[:50] if doc_data.get('lang') else None,
                     doc_data.get('count', '')[:100] if doc_data.get('count') else None,  # count -> country
                     doc_data.get('author', '')[:500] if doc_data.get('author') else None,
@@ -233,8 +235,8 @@ class DatabaseManager:
                             # Prepare insert statement 
                             sql = """
                             MERGE documents AS target
-                            USING (VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)) AS source 
-                            (id, title, docdt, abstract, docty, majdocty, volnb, totvolnb, url, lang, country, author, publisher)
+                            USING (VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)) AS source 
+                            (id, title, docdt, abstract, docty, majdocty, volnb, totvolnb, url, document_location, document_status, lang, country, author, publisher)
                             ON target.id = source.id
                             WHEN MATCHED THEN
                                 UPDATE SET 
@@ -246,15 +248,17 @@ class DatabaseManager:
                                     volnb = source.volnb,
                                     totvolnb = source.totvolnb,
                                     url = source.url,
+                                    document_location = source.document_location,
+                                    document_status = source.document_status,
                                     lang = source.lang,
                                     country = source.country,
                                     author = source.author,
                                     publisher = source.publisher,
                                     updated_at = GETDATE()
                             WHEN NOT MATCHED THEN
-                                INSERT (id, title, docdt, abstract, docty, majdocty, volnb, totvolnb, url, lang, country, author, publisher)
+                                INSERT (id, title, docdt, abstract, docty, majdocty, volnb, totvolnb, url, document_location, document_status, lang, country, author, publisher)
                                 VALUES (source.id, source.title, source.docdt, source.abstract, source.docty, source.majdocty, 
-                                       source.volnb, source.totvolnb, source.url, source.lang, source.country, source.author, source.publisher);
+                                       source.volnb, source.totvolnb, source.url, source.document_location, source.document_status, source.lang, source.country, source.author, source.publisher);
                             """
                             
                             # Convert date
@@ -278,6 +282,8 @@ class DatabaseManager:
                                 doc_data.get('volnb'),
                                 doc_data.get('totvolnb'), 
                                 doc_data.get('url', '')[:2048] if doc_data.get('url') else None,
+                                doc_data.get('document_location', '')[:1024] if doc_data.get('document_location') else None,
+                                doc_data.get('document_status', 'PENDING')[:50],
                                 doc_data.get('lang', '')[:50] if doc_data.get('lang') else None,
                                 doc_data.get('count', '')[:100] if doc_data.get('count') else None,
                                 doc_data.get('author', '')[:500] if doc_data.get('author') else None,

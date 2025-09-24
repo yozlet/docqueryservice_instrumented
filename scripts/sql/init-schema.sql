@@ -26,6 +26,8 @@ CREATE TABLE documents (
     volnb INT,
     totvolnb INT,
     url NVARCHAR(2048),
+    document_location NVARCHAR(1024), -- Path to downloaded PDF file on disk
+    document_status NVARCHAR(50) DEFAULT 'PENDING', -- Document download status: PENDING, DOWNLOADED, NOT_FOUND, FAILED, URL_ONLY
     
     -- Language and country
     lang NVARCHAR(50),
