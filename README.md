@@ -5,8 +5,9 @@ A comprehensive observability demonstration project featuring a multi-backend do
 ## 🎯 Project Overview
 
 This project builds a complete observability solution demo with:
+
 - **Multiple backend implementations** (.NET and Java) providing identical World Bank-style document APIs
-- **Hybrid cloud architecture** spanning Azure and non-Azure deployments  
+- **Hybrid cloud architecture** spanning Azure and non-Azure deployments
 - **Full-stack observability** with OpenTelemetry instrumentation for metrics, logs, and traces
 - **Real document data** from the World Bank API with SQL Server database storage
 - **Production-ready database infrastructure** with Docker containerization
@@ -36,6 +37,7 @@ This project builds a complete observability solution demo with:
 ## 🚀 Quick Start
 
 ### Prerequisites
+
 - **Docker** with Docker Compose
 - **Python 3.9+**
 - **mise** tool manager ([installation guide](https://mise.jdx.dev/getting-started.html))
@@ -61,6 +63,7 @@ cd scripts
 ```
 
 This will:
+
 - 🐳 Start Azure SQL Edge in Docker (ARM64/Apple Silicon compatible)
 - 📊 Initialize database schema with full-text search
 - 📄 Load 500+ real World Bank documents
@@ -88,14 +91,32 @@ for doc in results:
 # Load documents by topic
 python3 worldbank_scraper.py --query "climate change" --count 100 --database
 
-# Load documents by country  
+# Load documents by country
 python3 worldbank_scraper.py --country "Brazil" --count 50 --database
 
-# Load large dataset
+# Load large dataset with pagination support
 python3 worldbank_scraper.py --count 2000 --database
+
+# Resume from specific offset
+python3 worldbank_scraper.py --count 1000 --offset 500 --database
 ```
 
-### 4. Unified Local Development (Recommended)
+### 4. Download PDFs (Optional)
+
+After scraping document metadata, you can download the actual PDF files:
+
+```bash
+# Download PDFs from scraper output
+python3 pdf_downloader.py --input scripts/worldbank_data.sql
+
+# Parallel downloads with custom directory
+python3 pdf_downloader.py --output pdfs/ --max-workers 5
+
+# Download from database records
+python3 pdf_downloader.py --input database.db --database
+```
+
+### 5. Unified Local Development (Recommended)
 
 For the easiest local development experience, use the unified development script that manages all services:
 
@@ -113,11 +134,13 @@ cd deployment
 ```
 
 **Service URLs:**
+
 - **Frontend**: http://localhost:5173 (React app with document search)
 - **Backend API**: http://localhost:5001 (REST API + Swagger UI)
 - **Database**: localhost:1433 (Azure SQL Edge container)
 
 **Manual Control:**
+
 ```bash
 # Start database only, show manual commands for backend/frontend
 ./dev.sh start
@@ -160,6 +183,7 @@ dotnet run
 The frontend provides a comprehensive document search interface with real-time results, pagination, and rich metadata display.
 
 #### Development Mode
+
 ```bash
 # Setup Node.js environment (with security-hardened Yarn 4.10.2)
 mise install
@@ -176,6 +200,7 @@ yarn dev  # Runs on http://localhost:5173
 #### Production Deployment
 
 **Option 1: Docker Compose (Full Stack - Recommended)**
+
 ```bash
 cd frontend-react
 yarn deploy:local
@@ -184,6 +209,7 @@ yarn deploy:local
 ```
 
 **Option 2: Docker (Frontend Only)**
+
 ```bash
 cd frontend-react
 yarn docker:build
@@ -192,12 +218,14 @@ yarn docker:run
 ```
 
 **Option 3: Static Build (for CDN/nginx)**
+
 ```bash
 cd frontend-react
 yarn build  # Creates dist/ directory
 ```
 
 **Option 4: Interactive Deployment**
+
 ```bash
 cd frontend-react
 ./scripts/deploy.sh  # Guided deployment process
@@ -223,15 +251,16 @@ This project implements comprehensive npm/yarn security measures following [npm-
 ### Frontend Security Configuration
 
 **Yarn 4.10.2 Security Settings** (`.yarnrc.yml`):
+
 ```yaml
 # Disable scripts to prevent malicious packages from running code during install
 enableScripts: false
 
 # Set minimum release age to prevent supply chain attacks from fresh packages
-npmMinimalAgeGate: 4320  # 3 days (can be increased to 10080 for 7 days)
+npmMinimalAgeGate: 4320 # 3 days (can be increased to 10080 for 7 days)
 
 # Use exact versions for security (no semver ranges)
-defaultSemverRangePrefix: ""
+defaultSemverRangePrefix: ''
 
 # Enable strict SSL
 enableStrictSsl: true
@@ -241,6 +270,7 @@ nodeLinker: node-modules
 ```
 
 **Why These Settings Matter**:
+
 - ✅ **Scripts Disabled**: Prevents malicious packages from executing code during installation
 - ✅ **Minimum Age Gate**: Blocks packages published within 3-7 days to avoid supply chain attacks
 - ✅ **Exact Versions**: Uses exact versions without semver ranges to prevent unexpected updates
@@ -248,6 +278,7 @@ nodeLinker: node-modules
 - ✅ **Lockfile Commit**: `yarn.lock` is committed to ensure reproducible builds
 
 **Additional Security Measures**:
+
 - Dependencies pinned to specific versions tested to be older than minimum age
 - Regular security audits via `yarn npm audit`
 - Overrides and resolutions to prevent transitive dependency vulnerabilities
@@ -269,7 +300,8 @@ nodeLinker: node-modules
 │   ├── README.md               # Database setup documentation
 │   ├── SCRAPER_README.md       # World Bank scraper documentation
 │   ├── database.py             # Database utilities (pymssql-based)
-│   ├── worldbank_scraper.py    # World Bank API scraper
+│   ├── worldbank_scraper.py    # World Bank API scraper with pagination
+│   ├── pdf_downloader.py       # PDF downloader with organized storage
 │   └── setup-database.sh       # Automated database setup
 ├── frontend-react/             # React frontend with RUM instrumentation
 │   ├── src/
@@ -306,31 +338,36 @@ nodeLinker: node-modules
 ### ✅ **Completed Components**
 
 #### **Database Infrastructure**
+
 - **Azure SQL Edge** container with ARM64 compatibility
 - **Complete schema** with documents, countries, languages, types, authors, topics
 - **Full-text search** capabilities with LIKE fallback
 - **Database utilities** using pymssql for cross-platform reliability
 - **Bulk data loading** with MERGE operations for efficient updates
 
-#### **Data Pipeline** 
+#### **Data Pipeline**
+
 - **World Bank API scraper** with direct database insertion
 - **Real document corpus** (500+ documents loaded from World Bank API)
 - **Flexible filtering** by country, topic, date ranges, document types
 - **Robust error handling** with retry logic and graceful failures
 
 #### **Testing & Validation**
+
 - **Contract tests** validating API specifications against real World Bank API
 - **Database integration tests** verifying all operations
 - **OpenAPI specification** defining the target API contract
 - **Automated test suites** with pytest and comprehensive reporting
 
 #### **Documentation**
+
 - **Comprehensive setup guides** with troubleshooting
-- **API documentation** based on World Bank specification  
+- **API documentation** based on World Bank specification
 - **Database schema documentation** with entity relationships
 - **Cross-platform compatibility** notes (especially ARM64/Apple Silicon)
 
 #### **Frontend Application**
+
 - ✅ **React Frontend** (`frontend-react/`) - Modern React application with TypeScript
   - **Search Interface**: Real-time document search with pagination and filtering
   - **Rich UI Components**: Ant Design 5.19.4 for professional interface design
@@ -344,6 +381,7 @@ nodeLinker: node-modules
   - **📖 Complete Guide**: [`frontend-react/README.md`](frontend-react/README.md)
 
 #### **Real User Monitoring (RUM)**
+
 - ✅ **Honeycomb OpenTelemetry Web SDK** - Comprehensive frontend telemetry
   - **Automatic Instrumentation**: Document loads, user interactions, API calls with trace propagation
   - **Custom Business Events**: Search operations, pagination, document views with performance metrics
@@ -354,6 +392,7 @@ nodeLinker: node-modules
   - **📖 RUM Documentation**: [`frontend-react/HONEYCOMB_RUM.md`](frontend-react/HONEYCOMB_RUM.md)
 
 #### **Backend APIs**
+
 - ✅ **.NET Backend API** (`backend-dotnet/`) - Complete ASP.NET Core Web API
   - World Bank API compatible endpoints (`GET /api/v3/wds`)
   - SQL Server integration with Dapper ORM and connection pooling
@@ -395,7 +434,35 @@ python3 worldbank_scraper.py --count 100 --database
 
 # Generate SQL files for manual import
 python3 worldbank_scraper.py --count 100 --output documents.sql
+
+# Large-scale data collection with pagination
+python3 worldbank_scraper.py --count 5000 --database
+
+# Download PDFs after scraping metadata
+python3 pdf_downloader.py --input scripts/worldbank_data.sql --output pdfs/
 ```
+
+### PDF Management
+
+The PDF downloader creates an organized directory structure:
+
+```
+pdfs/
+├── by_country/          # PDFs organized by country (Brazil/, Poland/, etc.)
+├── by_type/             # PDFs organized by document type
+├── by_year/             # PDFs organized by publication year
+├── failed_downloads/    # For tracking and retry of failed downloads
+└── logs/               # Download logs and progress tracking
+```
+
+**Features:**
+
+- ✅ **Resume capability**: Skips already downloaded files
+- ✅ **Parallel downloads**: Configurable concurrent workers (1-10)
+- ✅ **Rate limiting**: Respectful delays to avoid overwhelming servers
+- ✅ **Organized storage**: Automatic categorization with symlinks/copies
+- ✅ **Progress tracking**: Real-time status and comprehensive logging
+- ✅ **Error handling**: Continues on failures, detailed error logs
 
 ### Backend Development
 
@@ -460,7 +527,7 @@ Database connection can be configured via environment variables:
 
 ```bash
 export DB_SERVER=localhost
-export DB_PORT=1433  
+export DB_PORT=1433
 export DB_DATABASE=DocQueryService
 export DB_USERNAME=sa
 export DB_PASSWORD=DevPassword123!
@@ -471,6 +538,7 @@ export DB_PASSWORD=DevPassword123!
 The database implements a comprehensive document management schema:
 
 ### Core Tables
+
 - **`documents`** - Main document metadata (title, abstract, dates, URLs, etc.)
 - **`countries`** - Country lookup table with codes and regions
 - **`languages`** - Language codes and names
@@ -479,10 +547,12 @@ The database implements a comprehensive document management schema:
 - **`topics`** - Subject/topic categorization
 
 ### Analytics Tables
+
 - **`search_queries`** - Query logging for performance analysis
 - **`document_access`** - View/download tracking for usage metrics
 
-### Views & Procedures  
+### Views & Procedures
+
 - **`v_documents_summary`** - Document summaries with access counts
 - **`sp_SearchDocuments`** - Full-text search with filtering
 - **`sp_GetSearchFacets`** - Faceted search results

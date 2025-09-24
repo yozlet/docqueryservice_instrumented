@@ -136,24 +136,64 @@ deploy_azure() {
 
     if [ "$DRY_RUN" = true ]; then
         log "DRY RUN: Would execute Azure deployment commands"
-        echo "  az webapp config appsettings set --settings from azure.env"
-        echo "  az webapp deployment source config-zip --src build.zip"
+        echo "  Container deployment: az webapp config container set --docker-custom-image-name"
+        echo "  Non-container deployment: ./deploy-azure.sh"
         return 0
     fi
 
-    # Azure deployment would typically involve:
+    # Check if user wants container or non-container deployment
+    echo "Azure deployment options:"
+    echo "1. Container deployment (Docker images to Azure Container Registry)"
+    echo "2. Azure deployment (App Service + SQL Database, no containers)"
+    echo ""
+    read -p "Choose deployment method (1 or 2): " choice
+
+    case $choice in
+        1)
+            deploy_azure_containers
+            ;;
+        2)
+            deploy_azure_appservice
+            ;;
+        *)
+            error "Invalid choice. Please select 1 or 2."
+            exit 1
+            ;;
+    esac
+}
+
+deploy_azure_containers() {
+    log "Deploying to Azure with containers..."
+    
+    # Azure container deployment would typically involve:
     # 1. Building container images
     # 2. Pushing to Azure Container Registry
     # 3. Updating App Service configuration
     # 4. Deploying containers
 
-    error "Azure deployment not yet implemented"
-    echo "To implement Azure deployment:"
+    error "Azure container deployment not yet implemented"
+    echo "To implement Azure container deployment:"
     echo "1. Set up Azure Container Registry"
-    echo "2. Configure Azure App Services"
+    echo "2. Configure Azure App Services for containers"
     echo "3. Set up Azure SQL Database"
     echo "4. Configure environment variables in Azure"
     exit 1
+}
+
+deploy_azure_appservice() {
+    log "Deploying to Azure (App Service + SQL Database)..."
+    
+    # Use the dedicated Azure deployment script
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    AZURE_SCRIPT="$SCRIPT_DIR/deploy-azure.sh"
+    
+    if [ ! -f "$AZURE_SCRIPT" ]; then
+        error "Azure deployment script not found: $AZURE_SCRIPT"
+        exit 1
+    fi
+    
+    log "Executing Azure deployment script..."
+    "$AZURE_SCRIPT"
 }
 
 deploy_aws() {

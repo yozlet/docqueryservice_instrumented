@@ -3477,19 +3477,19 @@
     ]
   },
   "packageFolders": {
-    "/Users/yoz/.nuget/packages/": {}
+    "/Users/brianlangbecker/.nuget/packages/": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "/Users/yoz/localcode/docqueryservice_instrumented/backend-dotnet/DocumentQueryService.Api.csproj",
+      "projectUniqueName": "/Users/brianlangbecker/Documents/GitHub/docqueryservice_instrumented/backend-dotnet/DocumentQueryService.Api.csproj",
       "projectName": "DocumentQueryService.Api",
-      "projectPath": "/Users/yoz/localcode/docqueryservice_instrumented/backend-dotnet/DocumentQueryService.Api.csproj",
-      "packagesPath": "/Users/yoz/.nuget/packages/",
-      "outputPath": "/Users/yoz/localcode/docqueryservice_instrumented/backend-dotnet/obj/",
+      "projectPath": "/Users/brianlangbecker/Documents/GitHub/docqueryservice_instrumented/backend-dotnet/DocumentQueryService.Api.csproj",
+      "packagesPath": "/Users/brianlangbecker/.nuget/packages/",
+      "outputPath": "/Users/brianlangbecker/Documents/GitHub/docqueryservice_instrumented/backend-dotnet/obj/",
       "projectStyle": "PackageReference",
       "configFilePaths": [
-        "/Users/yoz/.nuget/NuGet/NuGet.Config"
+        "/Users/brianlangbecker/.nuget/NuGet/NuGet.Config"
       ],
       "originalTargetFrameworks": [
         "net9.0"
@@ -3583,7 +3583,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "/Users/yoz/.local/share/mise/installs/dotnet/9.0.305/sdk/9.0.305/PortableRuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "/usr/local/share/dotnet/x64/sdk/9.0.305/PortableRuntimeIdentifierGraph.json"
       }
     }
   }
