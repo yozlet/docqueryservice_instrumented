@@ -1,87 +1,28 @@
+version: '3.8'
+
 services:
-  # Frontend
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
+  sqlserver:
+    # Use Azure SQL Edge for ARM64 compatibility (Apple Silicon)
+    # Falls back to standard SQL Server on x86_64
+    image: mcr.microsoft.com/azure-sql-edge:latest
+    container_name: docquery-sqlserver
     environment:
-      - REACT_APP_API_URL=http://localhost:8080/v1
-      - REACT_APP_OTEL_COLLECTOR_URL=http://otel-collector:4318/v1/traces
-    depends_on:
-      - otel-collector
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=DevPassword123!
+      - MSSQL_PID=Developer
     ports:
-      - "8080:8080"
-
-  # Python Backend
-  python-backend:
-    build:
-      context: ./backend/python
-      dockerfile: Dockerfile
-    environment:
-      - DB_HOST=db
-      - DB_PORT=5432
-      - DB_NAME=docquery
-      - DB_USER=postgres
-      - DB_PASSWORD=postgres
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
-    depends_on:
-      - db
-      - otel-collector
-
-  # .NET Backend
-  dotnet-backend:
-    build:
-      context: ./backend/dotnet
-      dockerfile: Dockerfile
-    environment:
-      - ConnectionStrings__DefaultConnection=Host=db;Database=docquery;Username=postgres;Password=postgres
-      - Otlp__Endpoint=http://otel-collector:4317
-    depends_on:
-      - db
-      - otel-collector
-
-  # NGINX Proxy
-  nginx:
-    build:
-      context: ./nginx
-      dockerfile: Dockerfile
-    ports:
-      - "80:80"
-      - "8080:8080"
-    depends_on:
-      - frontend
-      - python-backend
-      - dotnet-backend
-      - otel-collector
-
-  # OpenTelemetry Collector
-  otel-collector:
-    build:
-      context: ./otel-collector
-      dockerfile: Dockerfile
-    environment:
-      - HONEYCOMB_API_KEY=${HONEYCOMB_API_KEY}
-      - HONEYCOMB_DATASET=${HONEYCOMB_DATASET}
-      - ENVIRONMENT=development
-    ports:
-      - "4317:4317"  # OTLP gRPC
-      - "4318:4318"  # OTLP HTTP
+      - "1433:1433"
     volumes:
-      - ./otel-collector/config.yaml:/etc/otelcol/config.yaml
-
-  # Database
-  db:
-    image: postgres:14-alpine
-    environment:
-      - POSTGRES_DB=docquery
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./infrastructure/database/migrations:/docker-entrypoint-initdb.d
+      - sqlserver_data:/var/opt/mssql
+      - ./scripts/sql:/scripts
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P DevPassword123! -Q 'SELECT 1' || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
 
 volumes:
-  postgres_data:
-
+  sqlserver_data:
+    driver: local
