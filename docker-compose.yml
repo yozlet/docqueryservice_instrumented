@@ -1,28 +1,26 @@
 version: '3.8'
 
 services:
-  sqlserver:
-    # Use Azure SQL Edge for ARM64 compatibility (Apple Silicon)
-    # Falls back to standard SQL Server on x86_64
-    image: mcr.microsoft.com/azure-sql-edge:latest
-    container_name: docquery-sqlserver
+  postgres:
+    image: postgres:16-alpine
+    container_name: docquery-postgres
     environment:
-      - ACCEPT_EULA=Y
-      - SA_PASSWORD=DevPassword123!
-      - MSSQL_PID=Developer
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=DevPassword123!
+      - POSTGRES_DB=docqueryservice
     ports:
-      - "1433:1433"
+      - "5432:5432"
     volumes:
-      - sqlserver_data:/var/opt/mssql
-      - ./scripts/sql:/scripts
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/sql:/docker-entrypoint-initdb.d
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P DevPassword123! -Q 'SELECT 1' || exit 1"]
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
       timeout: 3s
       retries: 10
       start_period: 10s
 
 volumes:
-  sqlserver_data:
+  postgres_data:
     driver: local

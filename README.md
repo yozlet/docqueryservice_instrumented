@@ -15,9 +15,9 @@ This project builds a complete observability solution demo with:
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   React Frontend │    │  .NET Backend   │    │  Java Backend   │
-│   (Non-Azure)    │────│   (Azure)       │────│  (Non-Azure)    │
-│   RUM Tracking   │    │   App Service   │    │   Cloud VM      │
+│  React Frontend │    │  .NET Backend   │    │ Python Backend  │
+│  (Non-Azure)    │────│   (Azure)       │────│  (Non-Azure)    │
+│  RUM Tracking   │    │   App Service   │    │   Cloud VM      │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
          │                        │                        │
          └────────────────────────┼────────────────────────┘
@@ -39,12 +39,14 @@ This project builds a complete observability solution demo with:
 - **Docker** with Docker Compose
 - **Python 3.9+**
 - **mise** tool manager ([installation guide](https://mise.jdx.dev/getting-started.html))
+  - run `curl https://mise.run | sh`
 - **Node.js 20** (managed via mise for security)
 - **Yarn 4.10.2** (managed via mise, with security hardening)
 - **.NET 9.0 SDK** (managed via mise)
 
 ### 1. Database Setup
 
+This demo uses Microsoft SQL server as its main database.
 Start the SQL Server database and load sample documents:
 
 ```bash
