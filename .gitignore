@@ -376,6 +376,10 @@ deployment/aws.env
 deployment/gcp.env
 deployment/local-dev.env
 
+# Environment file backups (also contain secrets)
+deployment/*.env.bak
+deployment/*.bak
+
 # Keep templates but not actual config files
 !deployment/*.env.template
 
