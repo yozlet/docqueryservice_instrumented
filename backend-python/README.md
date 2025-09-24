@@ -16,12 +16,13 @@ This service provides API endpoints for searching and summarizing documents usin
 
 ## Prerequisites
 
-- Python 3.9+
+- Python 3.10+ (recommended due to dependency requirements)
 - API Keys (at least one required):
   - OpenAI API key (for GPT-3.5 and GPT-4 models)
   - Anthropic API key (for Claude models)
 - PostgreSQL database
 - Docker and docker-compose (for containerized deployment)
+- OpenTelemetry collector (optional, for telemetry collection)
 
 ## Configuration
 
@@ -100,14 +101,15 @@ HONEYCOMB_DATASET=docquery-summarizer
 ### Search Documents
 
 ```http
-POST /api/search
+POST /v1/search
 Content-Type: application/json
 
 {
   "title": "Sample Document",
   "document_type": "Report",
   "language": "en",
-  "max_results": 5
+  "max_results": 5,
+  "id": "doc123"  // Optional: search by specific document ID
 }
 ```
 
@@ -121,34 +123,31 @@ Response:
       "title": "Sample Document",
       "abstract": "Document abstract...",
       "document_type": "Report",
-      "language": "en"
-      // ... other document fields
+      "language": "en",
+      "url": "https://example.com/doc.pdf",  // Optional: PDF URL
+      "content": "Full document content..."   // Optional: document content
     }
-    // ... more documents up to max_results
   ]
 }
 ```
 
-### Summarize Document
+### Generate Document Summary
 
 ```http
-POST /api/summarize
+POST /v1/summary
 Content-Type: application/json
 
 {
-  "id": "doc123",
-  "title": "Sample Document",
-  "abstract": "Original abstract...",
-  "content": "Full document content to summarize...",
-  "model": "gpt-3.5-turbo-16k"  // Optional, defaults to GPT-3.5 Turbo
+  "ids": ["doc123"],  // Array of document IDs to summarize
+  "model": "gpt-3.5-turbo-16k"  // Optional: specify LLM model
 }
 ```
 
 Response:
 ```json
 {
-  "id": "doc123",
-  "summary": "Generated summary of the document..."
+  "summary_text": "Generated summary of the document...",
+  "summary_time_ms": 2500  // Time taken to generate summary in milliseconds
 }
 ```
 
@@ -163,6 +162,43 @@ The following models are supported for document summarization:
 
 Note: Make sure you have the appropriate API key configured for the model you want to use.
 
+### Health Check
+
+```http
+GET /health
+```
+
+Response:
+```json
+{
+  "status": "healthy"
+}
+```
+
+## Dependencies
+
+Key dependencies and their versions:
+
+- FastAPI v0.104.1
+- Uvicorn v0.27.0
+- Pydantic v2.11.9
+- SQLAlchemy v2.0.27
+- LangChain v0.1.0
+- LangChain OpenAI v0.0.5
+- LangChain Anthropic v0.1.1
+- OpenAI SDK v1.10.0
+- PyPDF2 v3.0.1
+- OpenTelemetry instrumentation packages
+
+For a complete list of dependencies and their versions, see `requirements.txt`.
+
 ## Monitoring and Observability
 
-The service is instrumented with OpenTelemetry and can send telemetry data to Honeycomb or any other OpenTelemetry collector. Configure the appropriate environment variables to enable telemetry collection.
+The service is instrumented with OpenTelemetry and can send telemetry data to Honeycomb or any other OpenTelemetry collector. The following components are instrumented:
+
+- FastAPI endpoints
+- SQLAlchemy database operations
+- LangChain operations
+- HTTP client calls
+
+Configure the appropriate environment variables to enable telemetry collection.
