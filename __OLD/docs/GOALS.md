@@ -8,24 +8,22 @@ Build a simple application that demonstrates observability features (metrics, lo
 ### Frontend
 - Simple UI with basic forms and data display
 - Interacts with backend via REST APIs
-- Uses a React framework running on Node.js
-- **Deployment**: Separate from backend APIs, deployed on AWS EC2 instance
-- Implements real user monitoring (RUM) instrumentation using Honeycomb's Web SDK (based on OpenTelemetry)
-- NGINX proxy should be configured as the exposed service to proxy requests to the frontend service
-- NGINX proxy needs to be configured to add OpenTelemetry tracing to each requests
+- Uses HTML/CSS/JavaScript or any frontend framework (React, Angular, etc.)
+- **Deployment**: Separate from backend APIs, deployed on Non-Azure cloud machine
+- Implements real user monitoring (RUM) instrumentation using OpenTelemetry
 
 ### Backends
-- **2 backends required**: AWS and Azure
+- **2 backends required**: Non-Azure and Azure
 - RESTful APIs with endpoints for CRUD operations
-- Both backends are functionality equivalent but created using different languages
-- Backends will connect to a cloud database in Azure
-- **AWS Backend**: Python API service deployed on AWS EC2 instance
+- **Current services**: .NET application and Java inventory service
+- **Non-Azure Backend**: Python API service deployed on separate cloud machine from frontend
 - **Azure Backend**: .NET API service deployed to Azure App Services
-- Implments logging, metrics, and tracing instrumentation using OpenTelemetry
+- Both connect to shared cloud database in Azure
+- Implements logging, metrics, and tracing instrumentation using OpenTelemetry
 
 ### Database
-- **Shared cloud database**: Azure SQL based on PostgreSQL
-- Used by both AWS and Azure backend services
+- **Shared cloud database**: Azure SQL or PostgreSQL hosted in Azure
+- Used by both Non-Azure and Azure backend services
 - Stores simple entities
 - No migration of existing local database contents required
 - Implements logging, metrics, and tracing instrumentation using OpenTelemetry
@@ -124,3 +122,13 @@ Build a simple application that demonstrates observability features (metrics, lo
 - Resolve against CMDB CIs and service maps
 - Update CI relationships from application discovery
 - Sync change records and maintenance windows
+
+## Current Architecture
+The existing Document Query Service project provides:
+- Nothing yet
+
+However, the aim is to implement APIs for searching a document store, and retrieving documents. The API should be modeled on that provided by the World Bank's Document & Report API. See [WORLDBANK_API.md](WORLDBANK_API.md) for detailed API specification and implementation requirements.
+
+The same API will be implemented in _both_ .NET and Java, with the frontend UI giving the option to choose between the two. The frontend itself will provide pages for building queries and navigating the results, implemented in React.
+
+There will be a single script which builds all the necessary components and runs them locally as individual services, with options to stop, start, and get status.
