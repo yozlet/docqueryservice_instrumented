@@ -1,6 +1,7 @@
 import os
 import time
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from opentelemetry import trace
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.sdk.trace import TracerProvider
@@ -23,6 +24,24 @@ app = FastAPI(
     title="Document Summarization Service",
     description="API for summarizing documents using LangChain and OpenAI",
     version="1.0.0"
+)
+
+# Configure CORS
+origins = [
+    "http://localhost:3000",  # React development server
+    "http://localhost:8080",  # Production build served by nginx
+    os.getenv("FRONTEND_URL", ""),  # Production URL from environment variable
+]
+
+# Filter out empty strings from origins
+origins = [origin for origin in origins if origin]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Configure OpenTelemetry
@@ -53,10 +72,14 @@ async def search_documents(search_request: DocumentSearchRequest):
     Search for documents based on the provided criteria
     """
     try:
+        start_time = time.time()
         total_count, documents = await document_search.search_documents(search_request)
+        search_time_ms = int((time.time() - start_time) * 1000)
+        
         return DocumentSearchResponse(
-            total_results=total_count,
-            documents=documents
+            results=documents,
+            result_count=total_count,
+            search_time_ms=search_time_ms
         )
     except ValueError as e:
         raise HTTPException(
