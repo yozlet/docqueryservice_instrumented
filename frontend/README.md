@@ -25,11 +25,18 @@ This is the frontend application for the Document Query Service, built with Reac
 
 ### Environment Configuration
 
-The application uses environment variables for configuration. Copy the example environment file and modify it according to your needs:
+The application uses environment variables for configuration. There are different environment files for development and production:
 
-```bash
-cp env.example .env.local
-```
+- Development: Copy the example environment file and modify it for development:
+  ```bash
+  cp env.example .env.local
+  ```
+
+- Production: Create a `.env.production` file with production settings:
+  ```bash
+  cp env.example .env.production
+  ```
+  Update `REACT_APP_API_URL` to `http://localhost:8080/v1` for production.
 
 Available environment variables:
 
@@ -54,16 +61,25 @@ Available environment variables:
    # Edit .env.local with your configuration
    ```
 
-3. Start the development server:
+3. Start the server:
    ```bash
+   # For development mode (default)
    ./start.sh
+   # OR
+   ./start.sh development
+
+   # For production mode
+   ./start.sh production
    ```
    Or run manually:
    ```bash
+   # Development
    npm start
+   # Production
+   npm run build && serve -s build
    ```
 
-3. To stop the development server:
+4. To stop the server:
    ```bash
    ./stop.sh
    ```
@@ -143,6 +159,149 @@ This application is instrumented with OpenTelemetry for monitoring and tracing. 
 ## Production Deployment
 
 The application is containerized using Docker and served using Nginx. The Nginx configuration can be found in `nginx.conf`.
+
+## Nginx Setup and Configuration
+
+### Installing Nginx
+
+1. **For macOS (using Homebrew):**
+   ```bash
+   brew install nginx
+   ```
+
+2. **For Ubuntu/Debian:**
+   ```bash
+   sudo apt update
+   sudo apt install nginx
+   ```
+
+3. **For CentOS/RHEL:**
+   ```bash
+   sudo yum install epel-release
+   sudo yum install nginx
+   ```
+
+### Configuring Nginx
+
+1. **Create a configuration directory (if it doesn't exist):**
+   ```bash
+   sudo mkdir -p /etc/nginx/sites-available
+   sudo mkdir -p /etc/nginx/sites-enabled
+   ```
+
+2. **Copy the provided configuration:**
+   ```bash
+   # For macOS (Homebrew)
+   sudo cp nginx.conf /usr/local/etc/nginx/servers/docquery.conf
+
+   # For Linux
+   sudo cp nginx.conf /etc/nginx/sites-available/docquery.conf
+   sudo ln -s /etc/nginx/sites-available/docquery.conf /etc/nginx/sites-enabled/
+   ```
+
+3. **Test the configuration:**
+   ```bash
+   # For macOS (Homebrew)
+   nginx -t
+
+   # For Linux
+   sudo nginx -t
+   ```
+
+### Running Nginx
+
+1. **Start Nginx:**
+   ```bash
+   # For macOS (Homebrew)
+   brew services start nginx
+
+   # For Linux
+   sudo systemctl start nginx
+   ```
+
+2. **Enable Nginx to start on boot (Linux only):**
+   ```bash
+   sudo systemctl enable nginx
+   ```
+
+3. **Manage Nginx:**
+   ```bash
+   # Restart Nginx
+   sudo systemctl restart nginx  # Linux
+   brew services restart nginx   # macOS
+
+   # Stop Nginx
+   sudo systemctl stop nginx     # Linux
+   brew services stop nginx      # macOS
+
+   # Check status
+   sudo systemctl status nginx   # Linux
+   brew services list           # macOS
+   ```
+
+The provided `nginx.conf` includes:
+- Reverse proxy configuration for both frontend and backend services:
+  - Frontend (React) at `http://localhost:3000`
+  - Backend (Python) at `http://localhost:5002`
+  - All requests to `/v1/*` are forwarded to the backend
+  - All other requests are forwarded to the frontend
+- WebSocket support for React development server
+- Security headers configuration
+- Gzip compression for better performance
+- Static file caching
+- Health check endpoint
+- SPA routing support
+- Error page handling
+
+### Proxy Configuration Details
+
+The Nginx server acts as a reverse proxy, routing requests to either the frontend React application or the backend Python service based on the URL path:
+
+1. **Frontend Routing**:
+   - Base URL: `http://localhost:8080/`
+   - All requests not starting with `/v1/` are routed to the React development server
+   - Includes WebSocket support for hot reloading
+
+2. **Backend API Routing**:
+   - Base URL: `http://localhost:8080/v1/`
+   - All requests starting with `/v1/` are routed to the Python backend
+   - The `/v1/` prefix is automatically stripped when forwarding to the backend
+
+3. **Development URLs**:
+   ```
+   Frontend (direct): http://localhost:3000
+   Backend (direct):  http://localhost:5002
+   
+   Through Nginx proxy:
+   Frontend: http://localhost:8080/
+   Backend:  http://localhost:8080/v1/
+   ```
+
+4. **Headers and Security**:
+   - Forwards client IP addresses
+   - Maintains secure headers
+   - Supports WebSocket upgrades
+   - Includes CORS and security policies
+
+### Verifying the Setup
+
+After starting Nginx, verify the setup by:
+
+1. Building the React application:
+   ```bash
+   npm run build
+   ```
+
+2. Copying the build files:
+   ```bash
+   # For macOS (Homebrew)
+   sudo cp -r build/* /usr/local/var/www/
+
+   # For Linux
+   sudo cp -r build/* /usr/share/nginx/html/
+   ```
+
+3. Visit [http://localhost:8080](http://localhost:8080) to verify the application is being served correctly.
 
 ## Contributing
 
