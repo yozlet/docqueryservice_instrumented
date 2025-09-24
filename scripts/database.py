@@ -232,37 +232,10 @@ class DatabaseManager:
                         try:
                             # Prepare insert statement 
                             sql = """
-<<<<<<< HEAD
-                            MERGE documents AS target
-                            USING (VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)) AS source 
-                            (id, title, docdt, abstract, docty, majdocty, volnb, totvolnb, url, document_location, document_status, lang, country, author, publisher)
-                            ON target.id = source.id
-                            WHEN MATCHED THEN
-                                UPDATE SET 
-                                    title = source.title,
-                                    docdt = source.docdt,
-                                    abstract = source.abstract,
-                                    docty = source.docty,
-                                    majdocty = source.majdocty,
-                                    volnb = source.volnb,
-                                    totvolnb = source.totvolnb,
-                                    url = source.url,
-                                    document_location = source.document_location,
-                                    document_status = source.document_status,
-                                    lang = source.lang,
-                                    country = source.country,
-                                    author = source.author,
-                                    publisher = source.publisher,
-                                    updated_at = GETDATE()
-                            WHEN NOT MATCHED THEN
-                                INSERT (id, title, docdt, abstract, docty, majdocty, volnb, totvolnb, url, document_location, document_status, lang, country, author, publisher)
-                                VALUES (source.id, source.title, source.docdt, source.abstract, source.docty, source.majdocty, 
-                                       source.volnb, source.totvolnb, source.url, source.document_location, source.document_status, source.lang, source.country, source.author, source.publisher);
-=======
                             INSERT INTO documents (
                                 id, title, docdt, abstract, docty, majdocty, volnb, totvolnb, 
-                                url, lang, country, author, publisher
-                            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                url, document_location, document_status, lang, country, author, publisher
+                            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                             ON CONFLICT (id) DO UPDATE SET
                                 title = EXCLUDED.title,
                                 docdt = EXCLUDED.docdt,
@@ -272,12 +245,13 @@ class DatabaseManager:
                                 volnb = EXCLUDED.volnb,
                                 totvolnb = EXCLUDED.totvolnb,
                                 url = EXCLUDED.url,
+                                document_location = EXCLUDED.document_location,
+                                document_status = EXCLUDED.document_status,
                                 lang = EXCLUDED.lang,
                                 country = EXCLUDED.country,
                                 author = EXCLUDED.author,
                                 publisher = EXCLUDED.publisher,
                                 updated_at = CURRENT_TIMESTAMP
->>>>>>> origin/howardyoo
                             """
                             
                             # Convert date

@@ -45,6 +45,13 @@ builder.Services.AddScoped<NpgsqlConnection>(_ => new NpgsqlConnection(connectio
 
 // Add our services
 builder.Services.AddScoped<IDocumentService, DocumentService>();
+builder.Services.AddScoped<IPythonStyleDocumentService, PythonStyleDocumentService>();
+builder.Services.AddScoped<IPdfService, PdfService>();
+builder.Services.AddScoped<ILlmService, LlmService>();
+
+// Add HttpClient for PDF and LLM services
+builder.Services.AddHttpClient<IPdfService, PdfService>();
+builder.Services.AddHttpClient<ILlmService, LlmService>();
 
 // Add CORS
 builder.Services.AddCors(options =>
@@ -67,11 +74,7 @@ builder.Services.AddOpenTelemetry()
         ]))
     .WithTracing(tracing => tracing
         .AddAspNetCoreInstrumentation()
-        .AddNpgsqlInstrumentation(options =>
-        {
-            options.SetDbStatementForText = true;
-            options.RecordException = true;
-        })
+        .AddNpgsql()
         .AddOtlpExporter())
     .WithMetrics(metrics => metrics
         .AddAspNetCoreInstrumentation()

@@ -177,9 +177,9 @@ else
     echo -e "${YELLOW}Direct database insertion failed, trying SQL file method...${NC}"
     
     # Generate SQL file and run it
-    if python worldbank_scraper.py --count $SAMPLE_DOCS --output /tmp/sample_data.sql; then
+    if python worldbank_scraper.py --count $SAMPLE_DOCS --output /sample_data.sql; then
         # Copy SQL file to container and run it
-        docker cp /tmp/sample_data.sql docquery-postgres:/tmp/sample_data.sql
+        docker cp /sample_data.sql docquery-postgres:/tmp/sample_data.sql
         docker exec docquery-postgres psql -U postgres -d "$DB_NAME" -f /tmp/sample_data.sql
         
         if [ $? -eq 0 ]; then

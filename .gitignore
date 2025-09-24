@@ -389,6 +389,11 @@ deployment/*.bak
 # Keep templates but not actual config files
 !deployment/*.env.template
 !local-dev.env.template
+!backend-python/local-dev.env.template
+
+# Local development environment files (contain secrets)
+backend-python/local-dev.env
+backend-dotnet/local-dev.env
 
 # Database credentials
 database.env

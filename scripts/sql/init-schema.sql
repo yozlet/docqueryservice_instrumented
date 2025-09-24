@@ -1,90 +1,87 @@
--- Document Query Service Database Schema - PostgreSQL Version
+-- Document Query Service Database Schema - SQL Server Version
 -- Based on World Bank Documents & Reports API specification
--- Optimized for PostgreSQL with full-text search capabilities
+-- Optimized for SQL Server with full-text search capabilities
 
 -- Create database (run this separately if needed)
--- CREATE DATABASE docqueryservice;
--- \c docqueryservice;
+-- CREATE DATABASE DocQueryService;
+-- USE DocQueryService;
 
 -- Main documents table
 CREATE TABLE documents (
-    id VARCHAR(255) PRIMARY KEY,
-    title TEXT NOT NULL,
+    id NVARCHAR(255) PRIMARY KEY,
+    title NTEXT NOT NULL,
     docdt DATE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at DATETIME2 DEFAULT GETDATE(),
+    updated_at DATETIME2 DEFAULT GETDATE(),
     
     -- Content and classification
-    abstract TEXT,
-    content_text TEXT, -- For full-text search
+    abstract NTEXT,
+    content_text NTEXT, -- For full-text search
     
     -- Document type information
-    docty VARCHAR(100),
-    majdocty VARCHAR(100),
+    docty NVARCHAR(100),
+    majdocty NVARCHAR(100),
     
     -- Publishing information
-    volnb INTEGER,
-    totvolnb INTEGER,
-    url VARCHAR(2048),
-    document_location VARCHAR(1024), -- Path to downloaded PDF file on disk
-    document_status VARCHAR(50) DEFAULT 'PENDING', -- Document download status: PENDING, DOWNLOADED, NOT_FOUND, FAILED, URL_ONLY
+    volnb INT,
+    totvolnb INT,
+    url NVARCHAR(2048),
+    document_location NVARCHAR(1024), -- Path to downloaded PDF file on disk
+    document_status NVARCHAR(50) DEFAULT 'PENDING', -- Document download status: PENDING, DOWNLOADED, NOT_FOUND, FAILED, URL_ONLY
     
     -- Language and country
-    lang VARCHAR(50),
-    country VARCHAR(100),
+    lang NVARCHAR(50),
+    country NVARCHAR(100),
     
     -- Additional metadata
-    author VARCHAR(500),
-    publisher VARCHAR(500),
-    isbn VARCHAR(50),
-    issn VARCHAR(50),
-    
-    -- Full-text search vector
-    search_vector TSVECTOR
+    author NVARCHAR(500),
+    publisher NVARCHAR(500),
+    isbn NVARCHAR(50),
+    issn NVARCHAR(50)
 );
 
 -- Countries lookup table for normalization
 CREATE TABLE countries (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(100) UNIQUE NOT NULL,
-    code VARCHAR(3) UNIQUE,
-    region VARCHAR(100),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    name NVARCHAR(100) UNIQUE NOT NULL,
+    code NVARCHAR(3) UNIQUE,
+    region NVARCHAR(100),
+    created_at DATETIME2 DEFAULT GETDATE()
 );
 
 -- Languages lookup table
 CREATE TABLE languages (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(50) UNIQUE NOT NULL,
-    iso_code VARCHAR(3),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    name NVARCHAR(50) UNIQUE NOT NULL,
+    iso_code NVARCHAR(3),
+    created_at DATETIME2 DEFAULT GETDATE()
 );
 
 -- Document types lookup table
 CREATE TABLE document_types (
-    id SERIAL PRIMARY KEY,
-    type_name VARCHAR(100) UNIQUE NOT NULL,
-    major_type VARCHAR(100),
-    description TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    type_name NVARCHAR(100) UNIQUE NOT NULL,
+    major_type NVARCHAR(100),
+    description NVARCHAR(500),
+    created_at DATETIME2 DEFAULT GETDATE()
 );
 
 -- Authors table (many-to-many with documents)
 CREATE TABLE authors (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(500) NOT NULL,
-    email VARCHAR(255),
-    organization VARCHAR(500),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    name NVARCHAR(500) NOT NULL,
+    email NVARCHAR(255),
+    organization NVARCHAR(500),
+    created_at DATETIME2 DEFAULT GETDATE(),
     
     UNIQUE(name, organization)
 );
 
 -- Document-Author relationship table
 CREATE TABLE document_authors (
-    document_id VARCHAR(255),
-    author_id INTEGER,
-    author_order INTEGER DEFAULT 1,
+    document_id NVARCHAR(255),
+    author_id INT,
+    author_order INT DEFAULT 1,
     PRIMARY KEY (document_id, author_id),
     FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE,
     FOREIGN KEY (author_id) REFERENCES authors(id) ON DELETE CASCADE
@@ -92,18 +89,18 @@ CREATE TABLE document_authors (
 
 -- Topics/Tags for categorization
 CREATE TABLE topics (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(100) UNIQUE NOT NULL,
-    description TEXT,
-    parent_id INTEGER,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    name NVARCHAR(100) UNIQUE NOT NULL,
+    description NVARCHAR(500),
+    parent_id INT,
+    created_at DATETIME2 DEFAULT GETDATE(),
     FOREIGN KEY (parent_id) REFERENCES topics(id)
 );
 
 -- Document-Topic relationship table
 CREATE TABLE document_topics (
-    document_id VARCHAR(255),
-    topic_id INTEGER,
+    document_id NVARCHAR(255),
+    topic_id INT,
     relevance_score DECIMAL(3,2) DEFAULT 1.0,
     PRIMARY KEY (document_id, topic_id),
     FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE,
@@ -112,77 +109,66 @@ CREATE TABLE document_topics (
 
 -- Search and analytics tables
 CREATE TABLE search_queries (
-    id SERIAL PRIMARY KEY,
-    query_text VARCHAR(1000) NOT NULL,
-    result_count INTEGER DEFAULT 0,
-    execution_time_ms INTEGER,
-    user_id VARCHAR(255),
-    session_id VARCHAR(255),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    query_text NVARCHAR(1000) NOT NULL,
+    result_count INT DEFAULT 0,
+    execution_time_ms INT,
+    user_id NVARCHAR(255),
+    session_id NVARCHAR(255),
+    created_at DATETIME2 DEFAULT GETDATE()
 );
 
 -- Document view/download tracking
 CREATE TABLE document_access (
-    id SERIAL PRIMARY KEY,
-    document_id VARCHAR(255) NOT NULL,
-    access_type VARCHAR(20) CHECK (access_type IN ('view', 'download', 'search_result')),
-    user_id VARCHAR(255),
-    session_id VARCHAR(255),
-    ip_address VARCHAR(45),
-    user_agent VARCHAR(1000),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    document_id NVARCHAR(255) NOT NULL,
+    access_type NVARCHAR(20) CHECK (access_type IN ('view', 'download', 'search_result')),
+    user_id NVARCHAR(255),
+    session_id NVARCHAR(255),
+    ip_address NVARCHAR(45),
+    user_agent NVARCHAR(1000),
+    created_at DATETIME2 DEFAULT GETDATE(),
     FOREIGN KEY (document_id) REFERENCES documents(id)
 );
 
 -- Indexes for performance
-CREATE INDEX idx_documents_docdt ON documents(docdt);
-CREATE INDEX idx_documents_lang ON documents(lang);
-CREATE INDEX idx_documents_country ON documents(country);
-CREATE INDEX idx_documents_docty ON documents(docty);
-CREATE INDEX idx_documents_majdocty ON documents(majdocty);
-CREATE INDEX idx_documents_created_at ON documents(created_at);
-CREATE INDEX idx_documents_updated_at ON documents(updated_at);
-CREATE INDEX idx_documents_document_status ON documents(document_status);
-
--- Full-text search indexes (PostgreSQL specific)
-CREATE INDEX idx_documents_title_fts ON documents USING GIN(to_tsvector('english', title));
-CREATE INDEX idx_documents_abstract_fts ON documents USING GIN(to_tsvector('english', COALESCE(abstract, '')));
-CREATE INDEX idx_documents_content_fts ON documents USING GIN(to_tsvector('english', COALESCE(content_text, '')));
-CREATE INDEX idx_documents_search_vector ON documents USING GIN(search_vector);
+CREATE INDEX IX_documents_docdt ON documents(docdt);
+CREATE INDEX IX_documents_lang ON documents(lang);
+CREATE INDEX IX_documents_country ON documents(country);
+CREATE INDEX IX_documents_docty ON documents(docty);
+CREATE INDEX IX_documents_majdocty ON documents(majdocty);
+CREATE INDEX IX_documents_created_at ON documents(created_at);
+CREATE INDEX IX_documents_updated_at ON documents(updated_at);
+CREATE INDEX IX_documents_document_status ON documents(document_status);
 
 -- Search performance indexes
-CREATE INDEX idx_search_queries_created_at ON search_queries(created_at);
-CREATE INDEX idx_document_access_document_id ON document_access(document_id);
-CREATE INDEX idx_document_access_created_at ON document_access(created_at);
-CREATE INDEX idx_document_access_access_type ON document_access(access_type);
+CREATE INDEX IX_search_queries_created_at ON search_queries(created_at);
+CREATE INDEX IX_document_access_document_id ON document_access(document_id);
+CREATE INDEX IX_document_access_created_at ON document_access(created_at);
+CREATE INDEX IX_document_access_access_type ON document_access(access_type);
 
 -- Composite indexes for common query patterns
-CREATE INDEX idx_documents_lang_country ON documents(lang, country);
-CREATE INDEX idx_documents_docdt_lang ON documents(docdt, lang);
-CREATE INDEX idx_documents_majdocty_docdt ON documents(majdocty, docdt);
-CREATE INDEX idx_documents_status_created ON documents(document_status, created_at);
+CREATE INDEX IX_documents_lang_country ON documents(lang, country);
+CREATE INDEX IX_documents_docdt_lang ON documents(docdt, lang);
+CREATE INDEX IX_documents_majdocty_docdt ON documents(majdocty, docdt);
+CREATE INDEX IX_documents_status_created ON documents(document_status, created_at);
 
--- Function to update search vector and timestamp
-CREATE OR REPLACE FUNCTION update_document_search_and_timestamp()
-RETURNS TRIGGER AS $$
+-- Full-text search setup (enable after data is loaded)
+-- Full-text catalog and index will be created separately
+-- as they require the database to have data first
+
+-- Trigger to update updated_at timestamp
+CREATE TRIGGER TR_documents_update_timestamp
+ON documents
+AFTER UPDATE
+AS
 BEGIN
-    -- Update the updated_at timestamp
-    NEW.updated_at = CURRENT_TIMESTAMP;
-    
-    -- Update search vector
-    NEW.search_vector := 
-        setweight(to_tsvector('english', COALESCE(NEW.title, '')), 'A') ||
-        setweight(to_tsvector('english', COALESCE(NEW.abstract, '')), 'B') ||
-        setweight(to_tsvector('english', COALESCE(NEW.content_text, '')), 'C');
-    
-    RETURN NEW;
+    SET NOCOUNT ON;
+    UPDATE documents 
+    SET updated_at = GETDATE()
+    FROM documents d
+    INNER JOIN inserted i ON d.id = i.id;
 END;
-$$ LANGUAGE plpgsql;
-
--- Trigger to automatically update search vector and timestamp
-CREATE TRIGGER trig_update_document_search_and_timestamp
-    BEFORE INSERT OR UPDATE ON documents
-    FOR EACH ROW EXECUTE FUNCTION update_document_search_and_timestamp();
 
 -- Views for common queries
 CREATE VIEW v_documents_summary AS
@@ -204,7 +190,7 @@ GROUP BY d.id, d.title, d.docdt, d.lang, d.country, d.docty, d.majdocty, d.url, 
 
 -- View for recent documents
 CREATE VIEW v_recent_documents AS
-SELECT 
+SELECT TOP 100
     id,
     title,
     docdt,
@@ -214,12 +200,11 @@ SELECT
     document_status,
     created_at
 FROM documents
-ORDER BY created_at DESC
-LIMIT 100;
+ORDER BY created_at DESC;
 
 -- View for popular documents (by access count)
 CREATE VIEW v_popular_documents AS
-SELECT 
+SELECT TOP 100
     d.id,
     d.title,
     d.docdt,
@@ -230,35 +215,7 @@ SELECT
 FROM documents d
 INNER JOIN document_access da ON d.id = da.document_id
 GROUP BY d.id, d.title, d.docdt, d.lang, d.country, d.document_status
-ORDER BY COUNT(da.id) DESC
-LIMIT 100;
-
--- View for document facets (for search filtering)
-CREATE VIEW v_document_facets AS
-SELECT 'country' as facet_type, country as facet_value, COUNT(*) as count
-FROM documents 
-WHERE country IS NOT NULL
-GROUP BY country
-UNION ALL
-SELECT 'language' as facet_type, lang as facet_value, COUNT(*) as count
-FROM documents 
-WHERE lang IS NOT NULL
-GROUP BY lang
-UNION ALL
-SELECT 'document_type' as facet_type, docty as facet_value, COUNT(*) as count
-FROM documents 
-WHERE docty IS NOT NULL
-GROUP BY docty
-UNION ALL
-SELECT 'major_document_type' as facet_type, majdocty as facet_value, COUNT(*) as count
-FROM documents 
-WHERE majdocty IS NOT NULL
-GROUP BY majdocty
-UNION ALL
-SELECT 'status' as facet_type, document_status as facet_value, COUNT(*) as count
-FROM documents 
-WHERE document_status IS NOT NULL
-GROUP BY document_status;
+ORDER BY COUNT(da.id) DESC;
 
 -- Sample data for testing (World Bank regions and languages)
 INSERT INTO countries (name, code, region) VALUES
@@ -300,13 +257,8 @@ INSERT INTO topics (name, description) VALUES
 ('Private Sector', 'Private sector development'),
 ('Social Protection', 'Social safety nets and protection systems');
 
--- PostgreSQL completion message
-DO $$
-BEGIN
-    RAISE NOTICE 'PostgreSQL database schema created successfully!';
-    RAISE NOTICE 'Next steps:';
-    RAISE NOTICE '1. Run the scraper to populate with real data';
-    RAISE NOTICE '2. Full-text search is automatically enabled with triggers';
-    RAISE NOTICE '3. Monitor query performance and add indexes as needed';
-    RAISE NOTICE '4. Consider partitioning large tables by date if needed';
-END $$;
+PRINT 'Database schema created successfully!';
+PRINT 'Next steps:';
+PRINT '1. Run the scraper to populate with real data';
+PRINT '2. Enable full-text search after data is loaded';
+PRINT '3. Create additional indexes based on query patterns';

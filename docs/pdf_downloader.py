@@ -658,51 +658,40 @@ class PDFDownloader:
             'by_year': self.output_dir / "by_year" / year / filename
         }
     
-    def update_document_status(self, document_id: str, status: str, document_location: Optional[str] = None, error_message: Optional[str] = None) -> bool:
-        """Update document status and location in database and/or SQL file."""
+    def update_document_status(self, document_id: str, status: str, error_message: Optional[str] = None) -> bool:
+        """Update document status in database and/or SQL file."""
         updated = False
         
         # Track update for SQL file
         if self.update_sql_file:
             with self.lock:
-                self.document_updates[document_id] = {'status': status, 'location': document_location}
-            location_info = f", location: {document_location}" if document_location else ""
-            print(f"   📝 [SQL UPDATE] Document {document_id} → status: {status}{location_info}")
+                self.document_updates[document_id] = status
+            print(f"   📝 [SQL UPDATE] Document {document_id} → status: {status}")
             updated = True
         
         # Update database if enabled
         if not self.update_database or not self.db_manager:
             if not updated:
-                location_info = f", location: {document_location}" if document_location else ""
-                print(f"   ℹ️  [SKIP] No updates enabled for {document_id} → {status}{location_info}")
+                print(f"   ℹ️  [SKIP] No updates enabled for {document_id} → {status}")
             return updated
         
         try:
             with self.db_manager.get_connection() as conn:
                 cursor = conn.cursor()
                 
-                # Update document status and location
-                if document_location:
-                    sql = """
-                    UPDATE documents 
-                    SET document_status = %s, document_location = %s, updated_at = CURRENT_TIMESTAMP
-                    WHERE id = %s
-                    """
-                    cursor.execute(sql, (status, document_location, document_id))
-                else:
-                    sql = """
-                    UPDATE documents 
-                    SET document_status = %s, updated_at = CURRENT_TIMESTAMP
-                    WHERE id = %s
-                    """
-                    cursor.execute(sql, (status, document_id))
+                # Update document status
+                sql = """
+                UPDATE documents 
+                SET document_status = %s, updated_at = GETDATE()
+                WHERE id = %s
+                """
                 
+                cursor.execute(sql, (status, document_id))
                 rows_affected = cursor.rowcount
                 conn.commit()
                 
                 if rows_affected > 0:
-                    location_info = f" and location to {document_location}" if document_location else ""
-                    self.logger.info(f"Updated document {document_id} status to {status}{location_info}")
+                    self.logger.info(f"Updated document {document_id} status to {status}")
                     return True
                 else:
                     self.logger.warning(f"Document {document_id} not found for status update")
@@ -726,16 +715,8 @@ class PDFDownloader:
             
             updated_count = 0
             
-            # Update each document status and location
-            for document_id, update_info in self.document_updates.items():
-                # Handle both old string format and new dict format for backwards compatibility
-                if isinstance(update_info, str):
-                    new_status = update_info
-                    new_location = None
-                else:
-                    new_status = update_info.get('status', 'PENDING')
-                    new_location = update_info.get('location')
-                
+            # Update each document status
+            for document_id, new_status in self.document_updates.items():
                 # Pattern to find this specific document's INSERT statement
                 # Look for the document ID and then find the status field
                 pattern = rf"(INSERT INTO documents[^;]+VALUES[^;]+'{document_id}'[^;]+)'PENDING'([^;]+;)"
@@ -743,13 +724,7 @@ class PDFDownloader:
                 def replace_status(match):
                     nonlocal updated_count
                     updated_count += 1
-                    # If we have a location, also try to update the document_location field
-                    result = f"{match.group(1)}'{new_status}'{match.group(2)}"
-                    if new_location:
-                        # Try to update document_location field if it exists in the INSERT
-                        # This is a simple approach - in practice, you might want more sophisticated SQL parsing
-                        result = result.replace("NULL,", f"'{new_location}',", 1)  # Replace first NULL with location
-                    return result
+                    return f"{match.group(1)}'{new_status}'{match.group(2)}"
                 
                 content = re.sub(pattern, replace_status, content, flags=re.DOTALL)
             
@@ -872,7 +847,7 @@ class PDFDownloader:
             # Update document status to DOWNLOADED since file exists
             doc_id = doc.get('id', '')
             if doc_id:
-                self.update_document_status(doc_id, 'DOWNLOADED', original_filename)
+                self.update_document_status(doc_id, 'DOWNLOADED')
             
             print(f"   ✓ Skipped (exists): {original_filename} ({file_size:,} bytes)")
             self.logger.info(f"Skipped existing file: {original_filename}")
@@ -1015,10 +990,10 @@ class PDFDownloader:
             self.active_downloads.discard(thread_id)
             current_progress = f"[{self.downloaded_count + self.skipped_count + self.failed_count}/{self.total_documents}]"
         
-        # Update document status to DOWNLOADED with file location
+        # Update document status to DOWNLOADED
         doc_id = doc.get('id', '')
         if doc_id:
-            self.update_document_status(doc_id, 'DOWNLOADED', original_filename)
+            self.update_document_status(doc_id, 'DOWNLOADED')
         
         print(f"✅ {current_progress} SUCCESS: {original_filename}")
         print(f"   📍 Country: {doc.get('country', 'Unknown')} | Type: {doc.get('major_doc_type', 'Unknown')}")
@@ -1114,7 +1089,7 @@ and URL have been preserved for future reference or manual download.
             # Update document status to URL_ONLY
             doc_id = doc.get('id', '')
             if doc_id:
-                self.update_document_status(doc_id, 'URL_ONLY', url_filename)
+                self.update_document_status(doc_id, 'URL_ONLY')
             
             print(f"📄 {current_progress} URL RECORD CREATED: {url_filename}")
             print(f"   🌐 Original URL preserved: {url}")

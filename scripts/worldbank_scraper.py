@@ -22,8 +22,7 @@ try:
     DATABASE_AVAILABLE = True
 except ImportError:
     DATABASE_AVAILABLE = False
-    DatabaseConfig = None  # Define as None when not available
-    print("Database utilities not available. Install pg8000 or psycopg2-binary to use database features.")
+    print("Database utilities not available. Install psycopg2-binary to use database features.")
 
 class WorldBankScraper:
     def __init__(self):
@@ -107,40 +106,6 @@ class WorldBankScraper:
         text_str = text_str.replace("'", "''")
         
         return text_str[:5000]  # Limit length to prevent issues
-    
-    def generate_document_location(self, doc: Dict[str, Any]) -> str:
-        """Generate the expected document location for a document's PDF."""
-        import hashlib
-        from urllib.parse import urlparse, unquote
-        from pathlib import Path
-        
-        url = doc.get('pdfurl', '') or doc.get('url', '')
-        if not url:
-            return ""
-        
-        # Generate filename similar to pdf_downloader.py logic
-        try:
-            parsed_url = urlparse(url)
-            original_filename = Path(unquote(parsed_url.path)).name
-            
-            if not original_filename or not original_filename.lower().endswith('.pdf'):
-                # Generate filename from document info
-                title = self.clean_text(doc.get('display_title', ''))
-                # Sanitize title for filename
-                title_part = re.sub(r'[<>:"/\\|?*]', '_', title)
-                title_part = re.sub(r'\s+', '_', title_part)
-                title_part = title_part.strip('._')[:50]  # Limit length
-                
-                doc_id = doc.get('id', hashlib.md5(url.encode()).hexdigest()[:8])
-                original_filename = f"{doc_id}_{title_part}.pdf"
-            
-            # Return the main file path (matches pdf_downloader.py structure)
-            return f"pdfs/{original_filename}"
-            
-        except Exception:
-            # Fallback to simple filename
-            doc_id = doc.get('id', 'unknown')
-            return f"pdfs/{doc_id}.pdf"
 
     def extract_countries_from_docs(self, docs: List[Dict[str, Any]]) -> List[str]:
         """Extract unique countries from documents."""
@@ -300,9 +265,6 @@ class WorldBankScraper:
                     content_parts.append(author)
                 content_text = ' '.join(filter(None, content_parts))
                 
-                # Generate document location
-                document_location = self.generate_document_location(doc)
-                
                 f.write(f"""INSERT INTO documents (
     id, title, docdt, abstract, docty, majdocty, volnb, totvolnb, 
     url, document_location, document_status, lang, country, author, publisher, content_text
@@ -316,7 +278,7 @@ class WorldBankScraper:
     {volnb_str},
     {totvolnb_str},
     '{url}',
-    '{document_location}',
+    NULL,
     'PENDING',
     '{lang}',
     '{country}',
@@ -333,7 +295,7 @@ class WorldBankScraper:
         print(f"Languages: {len(languages)}")
         print(f"Document Types: {len(doctypes)}")
     
-    def insert_to_database(self, docs: List[Dict[str, Any]], db_config: Optional[Any] = None) -> bool:
+    def insert_to_database(self, docs: List[Dict[str, Any]], db_config: Optional[DatabaseConfig] = None) -> bool:
         """Insert documents directly into SQL Server database"""
         if not DATABASE_AVAILABLE:
             print("Database functionality not available. Install pymssql to use this feature.")
@@ -364,8 +326,6 @@ class WorldBankScraper:
                     'volnb': doc.get('volnb') if doc.get('volnb') and str(doc.get('volnb')).isdigit() else None,
                     'totvolnb': doc.get('totvolnb') if doc.get('totvolnb') and str(doc.get('totvolnb')).isdigit() else None,
                     'url': self.clean_text(doc.get('pdfurl', '') or doc.get('url', '')),
-                    'document_location': self.generate_document_location(doc),
-                    'document_status': 'PENDING',  # Default status for new documents
                     'lang': self.clean_text(doc.get('lang', '')) if not isinstance(doc.get('lang'), list)
                            else self.clean_text(doc['lang'][0]) if doc.get('lang') else '',
                     'count': self.clean_text(doc.get('count', '')) if not isinstance(doc.get('count'), list)
@@ -426,15 +386,6 @@ def main():
     
     args = parser.parse_args()
     
-    # Ensure output file is saved in the current working directory
-    import os
-    from pathlib import Path
-    
-    # Get just the filename from the output path (remove any directory components)
-    output_filename = os.path.basename(args.output)
-    # Create the full path in the current working directory
-    args.output = os.path.join(os.getcwd(), output_filename)
-    
     print(f"World Bank Documents API Scraper")
     print(f"Fetching {args.count} documents...")
     if args.query:
@@ -442,13 +393,7 @@ def main():
     if args.country:
         print(f"Country: {args.country}")
     if args.database:
-<<<<<<< HEAD
-        print(f"Database: {args.db_server}:{args.db_port}/{args.db_name}")
-    else:
-        print(f"Output file: {args.output}")
-=======
         print(f"Database: {args.db_host}:{args.db_port}/{args.db_name}")
->>>>>>> origin/howardyoo
     print()
     
     scraper = WorldBankScraper()

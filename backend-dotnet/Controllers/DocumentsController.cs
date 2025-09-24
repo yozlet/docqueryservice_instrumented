@@ -267,6 +267,129 @@ public class DocumentsController : ControllerBase
         return sb.ToString();
     }
 
+    /// <summary>
+    /// Modern search endpoint compatible with Python backend (POST /v1/search)
+    /// </summary>
+    /// <param name="request">Search request parameters</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Search results in Python backend format</returns>
+    [HttpPost("v1/search")]
+    [ProducesResponseType(typeof(PythonStyleDocumentSearchResponse), 200)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(500)]
+    public async Task<ActionResult<PythonStyleDocumentSearchResponse>> SearchDocumentsV1(
+        [FromBody] PythonStyleDocumentSearchRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var startTime = DateTime.UtcNow;
+            
+            _logger.LogInformation("V1 Search: query='{SearchText}', maxResults={MaxResults}",
+                request.SearchText, request.MaxResults);
+
+            // Convert to internal search request format
+            var internalRequest = new DocumentSearchRequest
+            {
+                QueryTerm = request.SearchText ?? request.Title,
+                Rows = request.MaxResults,
+                Offset = 0,
+                CountryExact = request.Country,
+                LanguageExact = request.Language,
+                StartDate = request.StartDate,
+                EndDate = request.EndDate,
+                DocumentType = request.DocType,
+                MajorDocumentType = request.MajorDocumentType
+            };
+
+            var internalResponse = await _documentService.SearchDocumentsAsync(internalRequest, cancellationToken);
+            
+            // Convert to Python-style response
+            var documents = internalResponse.Documents.Values
+                .Select(d => new DocumentWithContent
+                {
+                    Id = d.Id,
+                    Title = d.Title,
+                    Abstract = d.Abstract,
+                    DocumentDate = d.DocumentDate,
+                    DocumentType = d.DocumentType,
+                    MajorDocumentType = d.MajorDocumentType,
+                    VolumeNumber = d.VolumeNumber,
+                    TotalVolumeNumber = d.TotalVolumeNumber,
+                    Url = d.Url,
+                    Language = d.Language,
+                    Country = d.Country,
+                    Author = d.Author,
+                    Publisher = d.Publisher,
+                    CreatedAt = d.CreatedAt,
+                    UpdatedAt = d.UpdatedAt
+                })
+                .ToList();
+
+            var searchTimeMs = (int)(DateTime.UtcNow - startTime).TotalMilliseconds;
+
+            var response = new PythonStyleDocumentSearchResponse
+            {
+                Results = documents,
+                ResultCount = internalResponse.Total,
+                SearchTimeMs = searchTimeMs
+            };
+
+            return Ok(response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error processing V1 document search request");
+            return StatusCode(500, new { error = "INTERNAL_ERROR", message = "An unexpected error occurred" });
+        }
+    }
+
+    /// <summary>
+    /// Document summarization endpoint compatible with Python backend (POST /v1/summary)
+    /// </summary>
+    /// <param name="request">Summarization request parameters</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Document summary</returns>
+    [HttpPost("v1/summary")]
+    [ProducesResponseType(typeof(DocumentSummaryResponse), 200)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(500)]
+    public async Task<ActionResult<DocumentSummaryResponse>> GenerateDocumentSummary(
+        [FromBody] DocumentSummaryRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var startTime = DateTime.UtcNow;
+            
+            _logger.LogInformation("V1 Summary: documentIds={DocumentIds}, model={Model}",
+                string.Join(",", request.Ids), request.Model);
+
+            if (!request.Ids.Any())
+            {
+                return BadRequest(new { error = "INVALID_PARAMETER", message = "No document IDs provided" });
+            }
+
+            // For now, return a placeholder response since AI summarization isn't implemented in .NET backend
+            // TODO: Implement actual AI summarization using OpenAI/Anthropic APIs
+            
+            var summaryTimeMs = (int)(DateTime.UtcNow - startTime).TotalMilliseconds;
+            
+            var response = new DocumentSummaryResponse
+            {
+                SummaryText = "AI summarization is not yet implemented in the .NET backend. Please use the Python backend for this feature.",
+                SummaryTimeMs = summaryTimeMs
+            };
+
+            return Ok(response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error processing document summarization request");
+            return StatusCode(500, new { error = "INTERNAL_ERROR", message = "An unexpected error occurred" });
+        }
+    }
+
     private static string XmlEscape(string? value)
     {
         if (string.IsNullOrEmpty(value))
