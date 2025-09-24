@@ -6,12 +6,14 @@ This is the frontend application for the Document Query Service, built with Reac
 
 - React 18
 - TypeScript
-- Material-UI (MUI)
-- React Router
-- React Query
+- Material-UI (MUI) with dark mode support
+- React Router for navigation
+- React Query for data fetching
 - OpenTelemetry for monitoring
 - Nginx for production serving
 - Docker for containerization
+- System-aware dark mode
+- Multiple AI model support
 
 ## Prerequisites
 
@@ -88,6 +90,36 @@ docker run -p 8080:8080 docquery-frontend
 
 The application will be available at [http://localhost:8080](http://localhost:8080)
 
+## Features
+
+### Dark Mode Support
+
+The application automatically adapts to your system's color scheme preference:
+
+- Automatically detects system dark mode preference
+- Updates in real-time when system preference changes
+- Uses Material UI's theme system for consistent styling
+- Custom color palettes for both light and dark modes
+
+To change the color scheme:
+1. Use your system's color scheme settings
+2. The application will automatically adjust its theme
+
+### AI Model Selection
+
+The document summarization feature supports multiple AI models:
+
+- GPT-3.5 Turbo (16k context)
+- GPT-4 Turbo
+- Claude 3 Sonnet
+- Claude 3 Opus
+
+Select the appropriate model based on your needs:
+- GPT-3.5 Turbo: Fast, cost-effective, good for most summaries
+- GPT-4 Turbo: More accurate, better for complex documents
+- Claude 3 Sonnet: Balanced performance and accuracy
+- Claude 3 Opus: Highest accuracy, best for critical documents
+
 ## Project Structure
 
 - `/src` - Source code
@@ -95,7 +127,7 @@ The application will be available at [http://localhost:8080](http://localhost:80
   - `/components` - Reusable React components
   - `/pages` - Page components
   - `/telemetry` - OpenTelemetry configuration
-  - `/theme` - MUI theme customization
+  - `/theme` - MUI theme customization with dark mode support
 
 ## Available Scripts
 
