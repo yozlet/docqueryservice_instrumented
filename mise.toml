@@ -1,6 +1,5 @@
 [tools]
 dotnet = "latest"
-java = "latest"
+python = "3.11"
 node = "20"
 yarn = "latest"
-python = "3.11"

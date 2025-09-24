@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
 Database utilities for Document Query Service
-Handles connections and operations for SQL Server database
+Handles connections and operations for PostgreSQL database
 """
 
 import os
-import pymssql
+import pg8000
 import logging
 from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass
@@ -20,10 +20,10 @@ logger = logging.getLogger(__name__)
 @dataclass
 class DatabaseConfig:
     """Database configuration settings"""
-    server: str = "localhost"
-    port: int = 1433
-    database: str = "DocQueryService"
-    username: str = "sa"
+    host: str = "localhost"
+    port: int = 5432
+    database: str = "docqueryservice"
+    username: str = "postgres"
     password: str = "DevPassword123!"
     timeout: int = 30
     
@@ -31,10 +31,10 @@ class DatabaseConfig:
     def from_env(cls) -> "DatabaseConfig":
         """Create config from environment variables"""
         return cls(
-            server=os.getenv("DB_SERVER", "localhost"),
-            port=int(os.getenv("DB_PORT", "1433")),
-            database=os.getenv("DB_DATABASE", "DocQueryService"),
-            username=os.getenv("DB_USERNAME", "sa"),
+            host=os.getenv("DB_HOST", "localhost"),
+            port=int(os.getenv("DB_PORT", "5432")),
+            database=os.getenv("DB_DATABASE", "docqueryservice"),
+            username=os.getenv("DB_USERNAME", "postgres"),
             password=os.getenv("DB_PASSWORD", "DevPassword123!"),
             timeout=int(os.getenv("DB_TIMEOUT", "30"))
         )
@@ -50,14 +50,13 @@ class DatabaseManager:
         """Get a database connection with automatic cleanup"""
         connection = None
         try:
-            connection = pymssql.connect(
-                server=self.config.server,
+            connection = pg8000.Connection(
+                host=self.config.host,
                 port=self.config.port,
                 user=self.config.username,
                 password=self.config.password,
                 database=self.config.database,
-                timeout=self.config.timeout,
-                autocommit=False
+                timeout=self.config.timeout
             )
             yield connection
         except Exception as e:
@@ -85,41 +84,40 @@ class DatabaseManager:
     def create_database_if_not_exists(self) -> bool:
         """Create database if it doesn't exist"""
         try:
-            # Connect to master database first
+            # Connect to postgres database first
             master_config = DatabaseConfig(
-                server=self.config.server,
+                host=self.config.host,
                 port=self.config.port,
-                database="master",
+                database="postgres",
                 username=self.config.username,
                 password=self.config.password,
                 timeout=self.config.timeout
             )
-            master_manager = DatabaseManager(master_config)
             
             # Use autocommit for DDL operations
             connection = None
             try:
-                connection = pymssql.connect(
-                    server=master_config.server,
+                connection = pg8000.Connection(
+                    host=master_config.host,
                     port=master_config.port,
                     user=master_config.username,
                     password=master_config.password,
                     database=master_config.database,
-                    timeout=master_config.timeout,
-                    autocommit=True
+                    timeout=master_config.timeout
                 )
+                connection.autocommit = True
                 cursor = connection.cursor()
                 
                 # Check if database exists
                 cursor.execute(
-                    "SELECT COUNT(*) FROM sys.databases WHERE name = %s", 
+                    "SELECT COUNT(*) FROM pg_database WHERE datname = %s",
                     (self.config.database,)
                 )
                 exists = cursor.fetchone()[0] > 0
                 
                 if not exists:
                     logger.info(f"Creating database: {self.config.database}")
-                    cursor.execute(f"CREATE DATABASE [{self.config.database}]")
+                    cursor.execute(f'CREATE DATABASE "{self.config.database}"')
                     logger.info("Database created successfully")
                 else:
                     logger.info("Database already exists")
@@ -143,8 +141,8 @@ class DatabaseManager:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
                 
-                # Split script by GO statements and execute separately
-                statements = [stmt.strip() for stmt in script.split('GO') if stmt.strip()]
+                # Split script by semicolons and execute separately
+                statements = [stmt.strip() for stmt in script.split(';') if stmt.strip()]
                 
                 for statement in statements:
                     if statement:
@@ -234,6 +232,7 @@ class DatabaseManager:
                         try:
                             # Prepare insert statement 
                             sql = """
+<<<<<<< HEAD
                             MERGE documents AS target
                             USING (VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)) AS source 
                             (id, title, docdt, abstract, docty, majdocty, volnb, totvolnb, url, document_location, document_status, lang, country, author, publisher)
@@ -259,6 +258,26 @@ class DatabaseManager:
                                 INSERT (id, title, docdt, abstract, docty, majdocty, volnb, totvolnb, url, document_location, document_status, lang, country, author, publisher)
                                 VALUES (source.id, source.title, source.docdt, source.abstract, source.docty, source.majdocty, 
                                        source.volnb, source.totvolnb, source.url, source.document_location, source.document_status, source.lang, source.country, source.author, source.publisher);
+=======
+                            INSERT INTO documents (
+                                id, title, docdt, abstract, docty, majdocty, volnb, totvolnb, 
+                                url, lang, country, author, publisher
+                            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                            ON CONFLICT (id) DO UPDATE SET
+                                title = EXCLUDED.title,
+                                docdt = EXCLUDED.docdt,
+                                abstract = EXCLUDED.abstract,
+                                docty = EXCLUDED.docty,
+                                majdocty = EXCLUDED.majdocty,
+                                volnb = EXCLUDED.volnb,
+                                totvolnb = EXCLUDED.totvolnb,
+                                url = EXCLUDED.url,
+                                lang = EXCLUDED.lang,
+                                country = EXCLUDED.country,
+                                author = EXCLUDED.author,
+                                publisher = EXCLUDED.publisher,
+                                updated_at = CURRENT_TIMESTAMP
+>>>>>>> origin/howardyoo
                             """
                             
                             # Convert date
@@ -320,44 +339,37 @@ class DatabaseManager:
             return 0
     
     def search_documents(self, search_term: str = None, limit: int = 10) -> List[Dict[str, Any]]:
-        """Search documents using full-text search or LIKE fallback"""
+        """Search documents using PostgreSQL full-text search with trigram similarity"""
         try:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
                 
                 if search_term:
-                    # Try full-text search first, fallback to LIKE if not available
-                    try:
-                        sql = """
-                        SELECT TOP (%s) id, title, abstract, docdt, lang, country, majdocty, url
-                        FROM documents
-                        WHERE CONTAINS((title, abstract), %s)
-                        ORDER BY id
-                        """
-                        cursor.execute(sql, (limit, search_term))
-                    except:
-                        # Fallback to LIKE search
-                        sql = """
-                        SELECT TOP (%s) id, title, abstract, docdt, lang, country, majdocty, url
-                        FROM documents
-                        WHERE title LIKE %s OR abstract LIKE %s
-                        ORDER BY created_at DESC
-                        """
-                        search_pattern = f'%{search_term}%'
-                        cursor.execute(sql, (limit, search_pattern, search_pattern))
+                    # Use trigram similarity for search
+                    sql = """
+                    SELECT id, title, abstract, docdt, lang, country, majdocty, url
+                    FROM documents
+                    WHERE title %% %s OR abstract %% %s
+                    ORDER BY 
+                        GREATEST(
+                            SIMILARITY(title, %s),
+                            SIMILARITY(abstract, %s)
+                        ) DESC
+                    LIMIT %s
+                    """
+                    cursor.execute(sql, (search_term, search_term, search_term, search_term, limit))
                 else:
                     sql = """
-                    SELECT TOP (%s) id, title, abstract, docdt, lang, country, majdocty, url
+                    SELECT id, title, abstract, docdt, lang, country, majdocty, url
                     FROM documents
                     ORDER BY created_at DESC
+                    LIMIT %s
                     """
                     cursor.execute(sql, (limit,))
                 
-                columns = [column[0] for column in cursor.description]
                 results = []
-                
-                for row in cursor.fetchall():
-                    doc = dict(zip(columns, row))
+                for row in cursor:
+                    doc = dict(zip([col[0] for col in cursor.description], row))
                     # Convert date to string if present
                     if doc.get('docdt'):
                         doc['docdt'] = doc['docdt'].strftime('%Y-%m-%d')

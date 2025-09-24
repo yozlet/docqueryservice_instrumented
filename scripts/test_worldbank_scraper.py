@@ -235,7 +235,8 @@ class TestWorldBankScraper:
             assert "'12345'" in sql_content
             
             # Check conflict handling
-            assert "ON CONFLICT" in sql_content
+            # Check PostgreSQL-style upsert
+            assert "ON CONFLICT (id) DO NOTHING" in sql_content
             
         finally:
             # Clean up temp file

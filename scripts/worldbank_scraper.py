@@ -23,7 +23,7 @@ try:
 except ImportError:
     DATABASE_AVAILABLE = False
     DatabaseConfig = None  # Define as None when not available
-    print("Database utilities not available. Install pymssql to use database features.")
+    print("Database utilities not available. Install pg8000 or psycopg2-binary to use database features.")
 
 class WorldBankScraper:
     def __init__(self):
@@ -416,13 +416,13 @@ def main():
     parser.add_argument('--offset', type=int, default=0,
                        help='Starting offset for pagination (default: 0)')
     parser.add_argument('--database', action='store_true',
-                       help='Insert directly into SQL Server database (requires pyodbc)')
-    parser.add_argument('--db-server', type=str, default='localhost',
-                       help='Database server (default: localhost)')
-    parser.add_argument('--db-port', type=int, default=1433,
-                       help='Database port (default: 1433)')
-    parser.add_argument('--db-name', type=str, default='DocQueryService',
-                       help='Database name (default: DocQueryService)')
+                       help='Insert directly into PostgreSQL database (requires psycopg2-binary)')
+    parser.add_argument('--db-host', type=str, default='localhost',
+                       help='Database host (default: localhost)')
+    parser.add_argument('--db-port', type=int, default=5432,
+                       help='Database port (default: 5432)')
+    parser.add_argument('--db-name', type=str, default='docqueryservice',
+                       help='Database name (default: docqueryservice)')
     
     args = parser.parse_args()
     
@@ -442,9 +442,13 @@ def main():
     if args.country:
         print(f"Country: {args.country}")
     if args.database:
+<<<<<<< HEAD
         print(f"Database: {args.db_server}:{args.db_port}/{args.db_name}")
     else:
         print(f"Output file: {args.output}")
+=======
+        print(f"Database: {args.db_host}:{args.db_port}/{args.db_name}")
+>>>>>>> origin/howardyoo
     print()
     
     scraper = WorldBankScraper()
@@ -464,7 +468,7 @@ def main():
             if args.database:
                 if DATABASE_AVAILABLE:
                     db_config = DatabaseConfig(
-                        server=args.db_server,
+                        host=args.db_host,
                         port=args.db_port,
                         database=args.db_name
                     )
