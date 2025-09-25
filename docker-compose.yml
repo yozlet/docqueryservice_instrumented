@@ -1,9 +1,40 @@
-version: '3.8'
-
 services:
+  # Frontend
+  frontend:
+    container_name: frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    environment:
+      - REACT_APP_API_URL=http://localhost:5002/v1
+      - REACT_APP_BROWSER_OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+    depends_on:
+      - otel-collector
+    ports:
+      - "8080:8080"
+
+  # Python Backend
+  backend-python:
+    container_name: backend-python
+    build:
+      context: ./backend-python
+      dockerfile: Dockerfile
+    environment:
+      - DATABASE_URL=postgresql://postgres:DevPassword123!@localhost:5432/docqueryservice
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4317}
+      - OTEL_SERVICE_NAME=docquery-backend-python
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-default_openai_key}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-default_anthropic_key}
+    depends_on:
+      - postgres
+      - otel-collector
+    ports:
+      - "5002:5002"
+
+  # Postgres Database
   postgres:
     image: postgres:16-alpine
-    container_name: docquery-postgres
+    container_name: postgres
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=DevPassword123!
@@ -22,6 +53,22 @@ services:
       timeout: 3s
       retries: 10
       start_period: 10s
+
+  # OpenTelemetry Collector
+  otel-collector:
+    container_name: otel-collector
+    build:
+      context: ./otel-collector
+      dockerfile: Dockerfile
+    environment:
+      - HONEYCOMB_API_KEY=${HONEYCOMB_API_KEY}
+      - HONEYCOMB_DATASET=${HONEYCOMB_DATASET}
+      - ENVIRONMENT=development
+    ports:
+      - "4317:4317"  # OTLP gRPC
+      - "4318:4318"  # OTLP HTTP
+    volumes:
+      - ./otel-collector/config.yaml:/etc/otelcol/config.yaml      
 
 volumes:
   postgres_data:

@@ -1,0 +1,57 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+        cors:
+          allowed_origins: ["http://*"]
+          allowed_headers: ["*"]
+
+processors:
+  batch:
+    timeout: 1s
+    send_batch_size: 1024
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 512
+  resourcedetection:
+    detectors: [env, system, ec2, azure]
+    timeout: 2s
+  attributes:
+    actions:
+      - key: environment
+        value: ${ENVIRONMENT}
+        action: insert
+
+exporters:
+  otlp/honeycomb:
+    endpoint: "api.honeycomb.io:443"
+    headers:
+      "x-honeycomb-team": "${HONEYCOMB_API_KEY}"
+      "x-honeycomb-dataset": "${HONEYCOMB_DATASET}"
+  debug:
+    verbosity: detailed
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch, resourcedetection, attributes]
+      exporters: [otlp/honeycomb, debug]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch, resourcedetection, attributes]
+      exporters: [otlp/honeycomb, debug]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch, resourcedetection, attributes]
+      exporters: [otlp/honeycomb, debug]
+
+  telemetry:
+    logs:
+      level: info
+    metrics:
+      level: detailed
+      
