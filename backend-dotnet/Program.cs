@@ -67,11 +67,7 @@ builder.Services.AddOpenTelemetry()
         ]))
     .WithTracing(tracing => tracing
         .AddAspNetCoreInstrumentation()
-        .AddNpgsqlInstrumentation(options =>
-        {
-            options.SetDbStatementForText = true;
-            options.RecordException = true;
-        })
+        .AddNpgsql()
         .AddOtlpExporter())
     .WithMetrics(metrics => metrics
         .AddAspNetCoreInstrumentation()
@@ -82,10 +78,10 @@ builder.Services.AddOpenTelemetry()
 builder.Services.AddOpenApi();
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new() { 
-        Title = "Document Query Service API", 
+    c.SwaggerDoc("v1", new() {
+        Title = "Document Query Service API",
         Version = "v1",
-        Description = "A World Bank-style document search and retrieval API"
+        Description = "Multi-version API: World Bank-style endpoints (/api/v3/wds) and Python-compatible endpoints (/v1)"
     });
 });
 

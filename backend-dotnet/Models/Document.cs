@@ -79,4 +79,14 @@ public class Document
     /// Last update timestamp
     /// </summary>
     public DateTime UpdatedAt { get; set; }
+
+    /// <summary>
+    /// Document content for summarization
+    /// </summary>
+    public string? Content { get; set; }
+
+    /// <summary>
+    /// LLM model to use for processing
+    /// </summary>
+    public string? Model { get; set; }
 }
