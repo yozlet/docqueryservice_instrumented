@@ -1,5 +1,6 @@
 from typing import List, Optional
 import os
+import ssl
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import SQLAlchemyError
 from ..models import Document, DocumentSearchRequest
@@ -16,13 +17,17 @@ class DocumentSearchService:
         """
         Initialize the database connection
         """
+        # ignore the certificate checks for now
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
         db_url = os.getenv("DATABASE_URL")
         if not db_url:
             raise ValueError("DATABASE_URL environment variable is not set")
         # Convert the URL to use pg8000 instead of psycopg2
         if db_url.startswith("postgresql://"):
             db_url = db_url.replace("postgresql://", "postgresql+pg8000://")
-        self.engine = create_engine(db_url)
+        self.engine = create_engine(db_url, connect_args={"ssl": ctx})
         SQLAlchemyInstrumentor().instrument(engine=self.engine)
 
     async def search_documents(self, search_request: DocumentSearchRequest) -> tuple[int, List[Document]]:
