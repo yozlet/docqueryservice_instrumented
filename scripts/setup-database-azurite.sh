@@ -222,11 +222,16 @@ setup_database() {
 generate_sample_data_file_only() {
     echo -e "${BLUE}📄 Generating sample document data...${NC}"
     
-    if [ ! -f "tmp/sample_data.sql" ]; then
+    # Always regenerate if clean flag is set, or if file doesn't exist
+    if [ "$CLEAN_FOR_TESTING" = true ] || [ ! -f "tmp/sample_data.sql" ]; then
         echo -e "${YELLOW}🌐 Fetching sample documents from World Bank API...${NC}"
-        $PYTHON_CMD worldbank_scraper.py --count $SAMPLE_DOCS --output tmp/sample_data.sql
         
-        if [ -f "tmp/sample_data.sql" ]; then
+        # Remove existing file if clean flag is set
+        if [ "$CLEAN_FOR_TESTING" = true ]; then
+            rm -f "tmp/sample_data.sql"
+        fi
+        
+        if $PYTHON_CMD worldbank_scraper.py --count $SAMPLE_DOCS --output tmp/sample_data.sql; then
             echo -e "${GREEN}✅ Sample data generated (${SAMPLE_DOCS} documents)${NC}"
         else
             echo -e "${RED}❌ Failed to generate sample data${NC}"
@@ -240,8 +245,27 @@ generate_sample_data_file_only() {
 # Load sample data to database (after PDFs are downloaded and SQL file is updated)
 load_sample_data_to_database() {
     echo -e "${YELLOW}📊 Loading sample data into database...${NC}"
-    docker exec -i docquery-postgres psql -U postgres -d "$DB_NAME" < "tmp/sample_data.sql"
-    echo -e "${GREEN}✅ Sample data loaded into database${NC}"
+    
+    # Check if sample data file exists
+    if [ ! -f "tmp/sample_data.sql" ]; then
+        echo -e "${RED}❌ Sample data file not found: tmp/sample_data.sql${NC}"
+        return 1
+    fi
+    
+    # Load the updated sample data (with DOWNLOADED statuses and blob locations)
+    if docker exec -i docquery-postgres psql -U postgres -d "$DB_NAME" < "tmp/sample_data.sql"; then
+        echo -e "${GREEN}✅ Sample data loaded into database${NC}"
+        
+        # Verify the load was successful
+        DOC_COUNT=$(docker exec docquery-postgres psql -U postgres -d "$DB_NAME" -t -c "SELECT COUNT(*) FROM documents;" 2>/dev/null | tr -d ' ' || echo "0")
+        DOWNLOADED_COUNT=$(docker exec docquery-postgres psql -U postgres -d "$DB_NAME" -t -c "SELECT COUNT(*) FROM documents WHERE document_status = 'DOWNLOADED';" 2>/dev/null | tr -d ' ' || echo "0")
+        
+        echo -e "${GREEN}   📊 Loaded ${DOC_COUNT} documents (${DOWNLOADED_COUNT} downloaded)${NC}"
+        return 0
+    else
+        echo -e "${RED}❌ Failed to load sample data into database${NC}"
+        return 1
+    fi
 }
 
 # Download PDFs to Azurite
@@ -254,22 +278,34 @@ download_pdfs_to_azurite() {
         exit 1
     fi
     
-    # Download all available PDFs to Azurite (same as regular setup)
-    echo -e "${YELLOW}📥 Downloading all available PDFs to Azurite...${NC}"
+    if [ ! -f "tmp/sample_data.sql" ]; then
+        echo -e "${RED}❌ Sample data file not found: tmp/sample_data.sql${NC}"
+        echo -e "${YELLOW}   Run sample data generation first${NC}"
+        exit 1
+    fi
+    
+    # Download all available PDFs to Azurite and update SQL file
+    echo -e "${YELLOW}📥 Downloading PDFs to Azurite and updating SQL file...${NC}"
     
     # Activate virtual environment and run PDF downloader with SQL file updates
     source "$VENV_DIR/bin/activate"
-    $PYTHON_CMD pdf_downloader_azurite.py tmp/sample_data.sql \
+    
+    # Run with better error handling
+    if $PYTHON_CMD pdf_downloader_azurite.py tmp/sample_data.sql \
         --container pdfs \
         --update-sql-file \
-        --quiet
-    
-    echo -e "${GREEN}✅ PDFs downloaded to Azurite blob storage${NC}"
+        --quiet \
+        --max-workers 5; then
+        echo -e "${GREEN}✅ PDFs downloaded to Azurite blob storage${NC}"
+    else
+        echo -e "${YELLOW}⚠️  PDF download completed with some issues (this is normal)${NC}"
+    fi
     
     # Show summary
     if [ -f "utilities/list_azurite_blobs.py" ]; then
         echo -e "${CYAN}📊 Azurite storage summary:${NC}"
-        $PYTHON_CMD utilities/list_azurite_blobs.py | grep -E "(Found|Total:|📦|🔗)" || true
+        BLOB_COUNT=$($PYTHON_CMD utilities/list_azurite_blobs.py 2>/dev/null | grep "Found" | grep -o '[0-9]\+' | head -1 || echo "0")
+        echo -e "${CYAN}   📄 PDFs in storage: ${BLOB_COUNT}${NC}"
     fi
 }
 

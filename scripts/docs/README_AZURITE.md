@@ -14,20 +14,30 @@ A specialized version of the World Bank PDF downloader that stores files directl
 
 ## 🚀 Quick Start
 
+**⚠️ CRITICAL: Always use `--clean` flag when running setup scripts!**
+
 ### Option 1: Automated Setup (Recommended)
+
+**⚠️ IMPORTANT: Always run with `--clean` flag for proper setup!**
 
 Use the integrated setup script for a complete development environment:
 
 ```bash
-# Complete setup with database + Azurite + sample data
-./setup-database-azurite.sh
-
-# Clean setup (removes existing data)
+# ✅ REQUIRED: Clean setup (removes existing data and starts fresh)
 ./setup-database-azurite.sh --clean
 
-# Custom document count
-./setup-database-azurite.sh --sample-docs=100
+# Custom document count with clean setup
+./setup-database-azurite.sh --clean --sample-docs=500
+
+# ❌ DON'T DO THIS: Running without --clean may cause issues
+# ./setup-database-azurite.sh
 ```
+
+**Why `--clean` is required:**
+- Removes old blob storage files that may interfere
+- Ensures fresh azurite database state  
+- Prevents conflicts with existing PDFs
+- Guarantees accurate download counts
 
 This automatically sets up:
 
