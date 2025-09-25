@@ -13,7 +13,7 @@ NC='\033[0m'
 
 # Configuration
 DB_NAME="docqueryservice"
-SAMPLE_DOCS=10
+SAMPLE_DOCS=500
 VENV_DIR=".venv"
 PYTHON_CMD="python3"
 CLEANUP_ON_START=false  # Set to true for testing to always start clean
@@ -113,7 +113,7 @@ echo -e "${GREEN}✅ Docker is running${NC}"
 echo -e "${YELLOW}Checking PostgreSQL container...${NC}"
 if ! docker ps | grep -q "docquery-postgres"; then
     echo -e "${YELLOW}Starting PostgreSQL container...${NC}"
-    docker compose up -d postgres
+    docker compose -f ../docker-compose.yml up -d postgres
     echo -e "${YELLOW}Waiting for PostgreSQL to be ready...${NC}"
     
     # Wait for PostgreSQL to be healthy
@@ -294,6 +294,6 @@ echo -e "  # Clean database and PDFs for testing"
 echo -e "  ./setup-database.sh --clean"
 echo ""
 echo -e "  # Stop the database"
-echo -e "  docker-compose down"
+echo -e "  docker compose -f ../docker-compose.yml down"
 echo ""
 echo -e "${GREEN}Ready to build your APIs! 🚀${NC}"

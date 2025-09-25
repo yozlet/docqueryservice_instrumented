@@ -18,6 +18,16 @@ import logging
 from pathlib import Path
 from typing import List, Dict, Optional, Tuple
 from urllib.parse import urlparse, unquote
+
+# Suppress verbose Azure SDK HTTP logging immediately
+azure_loggers = [
+    'azure.core.pipeline.policies.http_logging_policy',
+    'azure.storage.blob',
+    'azure.core',
+    'azure.identity'
+]
+for logger_name in azure_loggers:
+    logging.getLogger(logger_name).setLevel(logging.WARNING)
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 import threading
@@ -35,6 +45,8 @@ except ImportError:
 
 # Try to import database utilities (optional)
 try:
+    # Import from utilities directory
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'utilities'))
     from database import DatabaseManager, DatabaseConfig
     DATABASE_AVAILABLE = True
 except ImportError:
@@ -163,7 +175,10 @@ class AzuritePDFDownloader:
                  update_database: bool = False, db_config: Optional[Dict[str, str]] = None,
                  update_sql_file: bool = True, sql_file_path: Optional[str] = None,
                  max_downloads: Optional[int] = None, timeout: int = 30):
-        print("🚀 Initializing Azurite PDF Downloader...")
+        if verbose:
+            print("🚀 Initializing Azurite PDF Downloader...")
+        else:
+            print("🔵 Uploading to Azurite...")
         
         self.container_name = container_name
         self.max_workers = max_workers
@@ -182,7 +197,8 @@ class AzuritePDFDownloader:
         }
         
         self.storage = AzuriteStorage(storage_config)
-        print(f"✅ Azurite storage backend initialized")
+        if self.verbose:
+            print(f"✅ Azurite storage backend initialized")
         
         # Initialize database connection for status updates
         self.update_database = update_database and DATABASE_AVAILABLE
@@ -205,20 +221,25 @@ class AzuritePDFDownloader:
                 
                 # Test database connection
                 if self.db_manager.test_connection():
-                    print(f"🗄️  Database: Connected for status updates")
+                    if self.verbose:
+                        print(f"🗄️  Database: Connected for status updates")
                 else:
-                    print(f"⚠️  Database: Connection failed, status updates disabled")
+                    if self.verbose:
+                        print(f"⚠️  Database: Connection failed, status updates disabled")
                     self.update_database = False
                     self.db_manager = None
                     
             except Exception as e:
-                print(f"⚠️  Database: Setup failed ({e}), status updates disabled")
+                if self.verbose:
+                    print(f"⚠️  Database: Setup failed ({e}), status updates disabled")
                 self.update_database = False
                 self.db_manager = None
         else:
-            print(f"ℹ️  Database: Status updates disabled")
+            if self.verbose:
+                print(f"ℹ️  Database: Status updates disabled")
         
-        print(f"📊 Document status updates: {'Enabled' if self.update_database else 'Disabled'}")
+        if self.verbose:
+            print(f"📊 Document status updates: {'Enabled' if self.update_database else 'Disabled'}")
         
         # Initialize SQL file updates
         self.update_sql_file = update_sql_file
@@ -226,10 +247,11 @@ class AzuritePDFDownloader:
         self.document_updates = {}  # Track status updates for SQL file
         
         if self.update_sql_file:
-            if self.sql_file_path and os.path.exists(self.sql_file_path):
-                print(f"📝 SQL file updates: Will update {self.sql_file_path}")
-            else:
-                print(f"📝 SQL file updates: Enabled but no valid file path provided")
+            if self.verbose:
+                if self.sql_file_path and os.path.exists(self.sql_file_path):
+                    print(f"📝 SQL file updates: Will update {self.sql_file_path}")
+                else:
+                    print(f"📝 SQL file updates: Enabled but no valid file path provided")
         
         # Thread-safe counters and status
         self.lock = threading.Lock()
@@ -244,7 +266,8 @@ class AzuritePDFDownloader:
         self.setup_logging()
         
         # Setup session with better configuration
-        print("🌐 Configuring HTTP session...")
+        if self.verbose:
+            print("🌐 Configuring HTTP session...")
         self.session = requests.Session()
         self.session.headers.update({
             'User-Agent': 'WorldBank-PDF-Downloader-Azurite/1.0 (Document Query Service)',
@@ -266,7 +289,8 @@ class AzuritePDFDownloader:
         self.session.mount("http://", adapter)
         self.session.mount("https://", adapter)
         
-        print(f"✅ Session configured with retry strategy (3 retries, backoff)")
+        if self.verbose:
+            print(f"✅ Session configured with retry strategy (3 retries, backoff)")
         
         # Setup signal handlers for graceful shutdown
         self.setup_signal_handlers()
@@ -275,44 +299,53 @@ class AzuritePDFDownloader:
         self.heartbeat_thread = threading.Thread(target=self._heartbeat_worker, daemon=True)
         self.heartbeat_thread.start()
         
-        print(f"✅ Azurite PDF Downloader initialized successfully!")
-        print(f"   🔵 Container: {self.container_name}")
-        print(f"   ⚡ Max workers: {self.max_workers}")
-        print(f"   ⏱️  Request delay: {self.delay_between_requests}s")
-        print(f"   🔊 Verbose logging: {'Enabled' if self.verbose else 'Disabled'}")
+        if self.verbose:
+            print(f"✅ Azurite PDF Downloader initialized successfully!")
+            print(f"   🔵 Container: {self.container_name}")
+            print(f"   ⚡ Max workers: {self.max_workers}")
+            print(f"   ⏱️  Request delay: {self.delay_between_requests}s")
+            print(f"   🔊 Verbose logging: {'Enabled' if self.verbose else 'Disabled'}")
         
         # Test Azurite connectivity
         self._test_azurite_connectivity()
         
-        print("-" * 60)
+        if self.verbose:
+            print("-" * 60)
     
     def _test_azurite_connectivity(self):
         """Test Azurite connectivity."""
-        print("🔵 Testing Azurite connectivity...")
+        if self.verbose:
+            print("🔵 Testing Azurite connectivity...")
         try:
             # Try to list blobs to test connection
             blobs = self.storage.list_blobs()
-            print(f"   ✅ Azurite connection: OK ({len(blobs)} existing blobs)")
+            if self.verbose:
+                print(f"   ✅ Azurite connection: OK ({len(blobs)} existing blobs)")
             
             # Test upload/download with a small test file
             test_content = b"Azurite connectivity test"
             test_blob_name = f"test_connectivity_{int(time.time())}.txt"
             
             if self.storage.save_file(test_blob_name, test_content):
-                print(f"   ✅ Test upload: OK")
+                if self.verbose:
+                    print(f"   ✅ Test upload: OK")
                 
                 # Clean up test file
                 if self.storage.delete_blob(test_blob_name):
-                    print(f"   ✅ Test cleanup: OK")
+                    if self.verbose:
+                        print(f"   ✅ Test cleanup: OK")
                 else:
-                    print(f"   ⚠️  Test cleanup: Failed (non-critical)")
+                    if self.verbose:
+                        print(f"   ⚠️  Test cleanup: Failed (non-critical)")
             else:
-                print(f"   ❌ Test upload: Failed")
+                if self.verbose:
+                    print(f"   ❌ Test upload: Failed")
                 
         except Exception as e:
-            print(f"   ❌ Azurite connectivity test failed: {e}")
-            print("   ⚠️  Make sure Azurite is running:")
-            print("      azurite --silent --location c:\\azurite --debug c:\\azurite\\debug.log")
+            if self.verbose:
+                print(f"   ❌ Azurite connectivity test failed: {e}")
+                print("   ⚠️  Make sure Azurite is running:")
+                print("      azurite --silent --location c:\\azurite --debug c:\\azurite\\debug.log")
             self.logger.warning(f"Azurite connectivity test failed: {e}")
     
     def setup_logging(self):
@@ -668,6 +701,65 @@ class AzuritePDFDownloader:
                     
         except Exception as e:
             self.logger.error(f"Failed to update document {document_id} status: {e}")
+            return False
+    
+    def update_sql_file_status(self) -> bool:
+        """Update the SQL file with document status changes."""
+        if not self.update_sql_file or not self.sql_file_path or not self.document_updates:
+            return False
+        
+        try:
+            print(f"\n📝 Updating SQL file: {self.sql_file_path}")
+            
+            # Read the SQL file
+            with open(self.sql_file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            updated_count = 0
+            
+            # Update each document status and location
+            for document_id, update_info in self.document_updates.items():
+                # Handle both old string format and new dict format for backwards compatibility
+                if isinstance(update_info, str):
+                    new_status = update_info
+                    new_location = None
+                else:
+                    new_status = update_info.get('status', 'PENDING')
+                    new_location = update_info.get('location')
+                
+                # Pattern to find this specific document's INSERT statement
+                # Look for the document ID and then find the status field
+                pattern = rf"(INSERT INTO documents[^;]+VALUES[^;]+'{document_id}'[^;]+)'PENDING'([^;]+;)"
+                
+                def replace_status(match):
+                    nonlocal updated_count
+                    updated_count += 1
+                    # If we have a location, also try to update the document_location field
+                    result = f"{match.group(1)}'{new_status}'{match.group(2)}"
+                    if new_location:
+                        # Try to update document_location field if it exists in the INSERT
+                        # Need to be more specific - replace the document_location NULL, not volnb/totvolnb NULLs
+                        # Look for the pattern: url, NULL, status and replace the NULL between them
+                        # The status could be 'PENDING', 'DOWNLOADED', etc.
+                        # Handle multi-line pattern with whitespace and newlines
+                        url_location_pattern = r"('https?://[^']+'),\s*\n\s*NULL,\s*\n\s*('[^']*')"
+                        if re.search(url_location_pattern, result, re.MULTILINE):
+                            result = re.sub(url_location_pattern, rf"\1,\n    '{new_location}',\n    \2", result, flags=re.MULTILINE)
+                    return result
+                
+                content = re.sub(pattern, replace_status, content, flags=re.DOTALL)
+            
+            # Write back to file
+            with open(self.sql_file_path, 'w', encoding='utf-8') as f:
+                f.write(content)
+            
+            print(f"   ✅ Updated {updated_count} document statuses in SQL file")
+            self.logger.info(f"Updated SQL file with {updated_count} status changes")
+            return True
+            
+        except Exception as e:
+            print(f"   ❌ Failed to update SQL file: {e}")
+            self.logger.error(f"Failed to update SQL file: {e}")
             return False
     
     def download_pdf(self, doc: Dict[str, str], max_retries: int = 3) -> bool:
@@ -1077,15 +1169,20 @@ class AzuritePDFDownloader:
         
         print("=" * 80)
         
+        # Update SQL file with document status changes
+        if self.update_sql_file and self.document_updates:
+            self.update_sql_file_status()
+        
         return {
             'downloaded': self.downloaded_count,
             'skipped': self.skipped_count,
             'failed': self.failed_count
         }
 
-def print_banner():
+def print_banner(verbose=True):
     """Print startup banner."""
-    banner = """
+    if verbose:
+        banner = """
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║                    🔵 World Bank PDF Downloader - Azurite 🔵                  ║
 ║                                                                              ║
@@ -1097,11 +1194,22 @@ def print_banner():
 ║                                                                              ║
 ║  🚀 Starting up... Please wait for initialization to complete               ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
-    """
-    print(banner)
+        """
+        print(banner)
+    else:
+        print("🔵 World Bank PDF Downloader (Azurite) - Starting...")
 
 def main():
-    print_banner()
+    # Parse args to get verbose/quiet flags early for banner
+    import sys
+    verbose = '--verbose' in sys.argv
+    quiet = '--quiet' in sys.argv
+    
+    # Default to quiet mode unless verbose is specified
+    if not verbose and not quiet:
+        quiet = True
+    
+    print_banner(verbose and not quiet)
     
     parser = argparse.ArgumentParser(
         description='Download PDFs from World Bank scraper output to Azurite blob storage',
@@ -1166,10 +1274,11 @@ Examples:
     
     args = parser.parse_args()
     
-    # Determine verbosity
-    verbose = not args.quiet
-    if args.verbose:
-        verbose = True
+    # Determine verbosity (use early parsed flags)
+    verbose_mode = args.verbose and not args.quiet
+    # Default to quiet mode unless verbose is specified
+    if not args.verbose and not args.quiet:
+        verbose_mode = False
     
     # Handle input file from positional argument or --input flag
     input_file = args.input_file or args.input
@@ -1215,23 +1324,27 @@ Examples:
             'username': args.db_username,
             'password': args.db_password
         }
-        print(f"🗄️  Database updates: Enabled ({args.db_server}:{args.db_port}/{args.db_name})")
+        if verbose_mode:
+            print(f"🗄️  Database updates: Enabled ({args.db_server}:{args.db_port}/{args.db_name})")
     else:
-        print(f"🗄️  Database updates: Disabled")
+        if verbose_mode:
+            print(f"🗄️  Database updates: Disabled")
     
     # Configure SQL file updates (enabled by default)
     update_sql_file = args.update_sql_file and not args.no_sql_file_updates
     if update_sql_file:
-        print(f"📝 SQL file updates: Enabled")
+        if verbose_mode:
+            print(f"📝 SQL file updates: Enabled")
     else:
-        print(f"📝 SQL file updates: Disabled")
+        if verbose_mode:
+            print(f"📝 SQL file updates: Disabled")
     
     # Create downloader with Azurite configuration
     downloader = AzuritePDFDownloader(
         container_name=args.container,
         max_workers=args.max_workers,
         delay_between_requests=args.delay,
-        verbose=verbose,
+        verbose=verbose_mode,
         test_failures=args.test_failures,
         azurite_connection_string=args.azurite_connection,
         update_database=update_database,

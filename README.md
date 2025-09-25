@@ -61,7 +61,7 @@ mise install
 
 # Start database and load sample data
 cd scripts
-./setup-database.sh
+./setup-database.sh --clean
 ```
 
 This will:

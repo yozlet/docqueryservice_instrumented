@@ -6,7 +6,7 @@ set -e  # Exit on any error
 
 # Configuration
 DB_NAME="docqueryservice"
-SAMPLE_DOCS=200
+SAMPLE_DOCS=500
 VENV_DIR=".venv"
 PYTHON_CMD="python3"
 CLEAN_FOR_TESTING=false
@@ -46,7 +46,7 @@ cleanup_for_testing() {
     echo -e "${YELLOW}🧹 Cleaning up for fresh start...${NC}"
     
     echo -e "${YELLOW}Cleaning database...${NC}"
-    if "$SCRIPT_DIR/utilities/cleanup-database.sh" --confirm; then
+    if "$SCRIPT_DIR/utilities/cleanup-database.sh" --confirm --yes; then
         echo -e "${GREEN}✅ Database cleaned${NC}"
     else
         echo -e "${YELLOW}⚠️  Database cleanup skipped or failed (non-critical for setup)${NC}"
@@ -64,7 +64,7 @@ cleanup_for_testing() {
     fi
 
     echo -e "${YELLOW}Removing old sample data file...${NC}"
-    if rm -f "$SCRIPT_DIR/sample_data.sql"; then
+    if rm -f "$SCRIPT_DIR/tmp/sample_data.sql"; then
         echo -e "${GREEN}✅ Sample data file cleaned${NC}"
     else
         echo -e "${YELLOW}⚠️  Sample data file cleanup skipped or failed (non-critical)${NC}"
@@ -184,7 +184,7 @@ setup_database() {
     if ! check_database; then
         echo -e "${YELLOW}🚀 Starting database services...${NC}"
         cd "$SCRIPT_DIR/.."
-        docker-compose up -d postgres
+        docker compose up -d postgres
         cd "$SCRIPT_DIR"
         
         # Wait for database to be ready
@@ -218,15 +218,15 @@ setup_database() {
     fi
 }
 
-# Generate sample data
-generate_sample_data() {
+# Generate sample data file only (without loading to database)
+generate_sample_data_file_only() {
     echo -e "${BLUE}📄 Generating sample document data...${NC}"
     
-    if [ ! -f "sample_data.sql" ]; then
+    if [ ! -f "tmp/sample_data.sql" ]; then
         echo -e "${YELLOW}🌐 Fetching sample documents from World Bank API...${NC}"
-        $PYTHON_CMD worldbank_scraper.py --count $SAMPLE_DOCS --database
+        $PYTHON_CMD worldbank_scraper.py --count $SAMPLE_DOCS --output tmp/sample_data.sql
         
-        if [ -f "sample_data.sql" ]; then
+        if [ -f "tmp/sample_data.sql" ]; then
             echo -e "${GREEN}✅ Sample data generated (${SAMPLE_DOCS} documents)${NC}"
         else
             echo -e "${RED}❌ Failed to generate sample data${NC}"
@@ -235,10 +235,12 @@ generate_sample_data() {
     else
         echo -e "${GREEN}✅ Sample data file already exists${NC}"
     fi
-    
-    # Load sample data into database
+}
+
+# Load sample data to database (after PDFs are downloaded and SQL file is updated)
+load_sample_data_to_database() {
     echo -e "${YELLOW}📊 Loading sample data into database...${NC}"
-    docker exec -i docquery-postgres psql -U postgres -d "$DB_NAME" < "sample_data.sql"
+    docker exec -i docquery-postgres psql -U postgres -d "$DB_NAME" < "tmp/sample_data.sql"
     echo -e "${GREEN}✅ Sample data loaded into database${NC}"
 }
 
@@ -252,13 +254,14 @@ download_pdfs_to_azurite() {
         exit 1
     fi
     
-    # Download a reasonable number of PDFs for development
-    DOWNLOAD_COUNT=20
-    echo -e "${YELLOW}📥 Downloading ${DOWNLOAD_COUNT} sample PDFs to Azurite...${NC}"
+    # Download all available PDFs to Azurite (same as regular setup)
+    echo -e "${YELLOW}📥 Downloading all available PDFs to Azurite...${NC}"
     
-    $PYTHON_CMD pdf_downloader_azurite.py sample_data.sql \
-        --max-downloads $DOWNLOAD_COUNT \
+    # Activate virtual environment and run PDF downloader with SQL file updates
+    source "$VENV_DIR/bin/activate"
+    $PYTHON_CMD pdf_downloader_azurite.py tmp/sample_data.sql \
         --container pdfs \
+        --update-sql-file \
         --quiet
     
     echo -e "${GREEN}✅ PDFs downloaded to Azurite blob storage${NC}"
@@ -319,7 +322,7 @@ show_usage() {
     echo -e "  python3 utilities/list_azurite_blobs.py"
     echo ""
     echo -e "  # Download more PDFs"
-    echo -e "  python3 pdf_downloader_azurite.py sample_data.sql --max-downloads 50"
+    echo -e "  python3 pdf_downloader_azurite.py tmp/sample_data.sql --max-downloads 50"
     echo ""
     echo -e "  # Clean Azurite storage"
     echo -e "  utilities/clean_azurite.sh --confirm"
@@ -343,7 +346,7 @@ show_usage() {
     echo -e "  ./setup-database-azurite.sh --clean"
     echo ""
     echo -e "  # Stop services"
-    echo -e "  docker-compose down"
+    echo -e "  docker compose down  # (run from project root)"
     echo -e "  pkill -f azurite"
     echo ""
     echo -e "${YELLOW}🔧 Troubleshooting:${NC}"
@@ -420,14 +423,18 @@ main() {
     echo ""
     
     echo -e "${PURPLE}Step 4: Sample Data Generation${NC}"
-    generate_sample_data
+    generate_sample_data_file_only
     echo ""
     
     echo -e "${PURPLE}Step 5: PDF Download to Azurite${NC}"
     download_pdfs_to_azurite
     echo ""
     
-    echo -e "${PURPLE}Step 6: Verification${NC}"
+    echo -e "${PURPLE}Step 6: Load Updated Sample Data${NC}"
+    load_sample_data_to_database
+    echo ""
+    
+    echo -e "${PURPLE}Step 7: Verification${NC}"
     verify_setup
     echo ""
     
