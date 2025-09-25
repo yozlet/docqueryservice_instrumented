@@ -26,6 +26,7 @@ from enum import Enum
 
 # Try to import database utilities (optional)
 try:
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'utilities'))
     from database import DatabaseManager, DatabaseConfig
     DATABASE_AVAILABLE = True
 except ImportError:
@@ -64,7 +65,7 @@ class LocalStorage(StorageBackend):
     
     def __init__(self, config: Dict[str, str]):
         super().__init__(config)
-        self.base_path = Path(config.get('base_path', 'pdfs'))
+        self.base_path = Path(config.get('base_path', 'tmp/pdfs'))
     
     def save_file(self, file_path: str, content: bytes) -> bool:
         """Save file to local filesystem."""
@@ -178,13 +179,16 @@ class AzureBlobStorage(StorageBackend):
         return True
 
 class PDFDownloader:
-    def __init__(self, output_dir: str = "pdfs", max_workers: int = 3, 
+    def __init__(self, output_dir: str = "tmp/pdfs", max_workers: int = 3, 
                  delay_between_requests: float = 1.0, verbose: bool = True, test_failures: bool = False,
                  storage_type: StorageType = StorageType.LOCAL, storage_config: Optional[Dict[str, str]] = None,
                  update_database: bool = False, db_config: Optional[Dict[str, str]] = None,
                  update_sql_file: bool = True, sql_file_path: Optional[str] = None,
                  max_downloads: Optional[int] = None, timeout: int = 30):
-        print("🚀 Initializing PDF Downloader...")
+        if verbose:
+            print("🚀 Initializing PDF Downloader...")
+        else:
+            print("📥 Downloading PDFs...")
         
         self.output_dir = Path(output_dir)
         self.max_workers = max_workers
@@ -203,14 +207,17 @@ class PDFDownloader:
         if storage_type == StorageType.LOCAL:
             self.storage_config['base_path'] = str(self.output_dir)
             self.storage = LocalStorage(self.storage_config)
-            print(f"📁 Storage: Local filesystem ({self.output_dir.absolute()})")
+            if self.verbose:
+                print(f"📁 Storage: Local filesystem ({self.output_dir.absolute()})")
         elif storage_type == StorageType.AZURE_BLOB:
             self.storage = AzureBlobStorage(self.storage_config)
-            print(f"☁️  Storage: Azure Blob Storage (container: {self.storage_config.get('container_name', 'pdfs')})")
+            if self.verbose:
+                print(f"☁️  Storage: Azure Blob Storage (container: {self.storage_config.get('container_name', 'pdfs')})")
         else:
             raise ValueError(f"Unsupported storage type: {storage_type}")
         
-        print(f"✅ Storage backend initialized: {storage_type.value}")
+        if self.verbose:
+            print(f"✅ Storage backend initialized: {storage_type.value}")
         
         # Initialize database connection for status updates
         self.update_database = update_database and DATABASE_AVAILABLE
@@ -244,16 +251,18 @@ class PDFDownloader:
                 self.update_database = False
                 self.db_manager = None
         else:
-            print(f"ℹ️  Database: Status updates disabled")
+            if self.verbose:
+                print(f"ℹ️  Database: Status updates disabled")
         
-        print(f"📊 Document status updates: {'Enabled' if self.update_database else 'Disabled'}")
+        if self.verbose:
+            print(f"📊 Document status updates: {'Enabled' if self.update_database else 'Disabled'}")
         
         # Initialize SQL file updates for local mode
         self.update_sql_file = update_sql_file
         self.sql_file_path = sql_file_path
         self.document_updates = {}  # Track status updates for SQL file
         
-        if self.update_sql_file:
+        if self.verbose and self.update_sql_file:
             if self.sql_file_path and os.path.exists(self.sql_file_path):
                 print(f"📝 SQL file updates: Will update {self.sql_file_path}")
             else:
@@ -272,7 +281,8 @@ class PDFDownloader:
         self.setup_logging()
         
         # Setup session with better configuration
-        print("🌐 Configuring HTTP session...")
+        if self.verbose:
+            print("🌐 Configuring HTTP session...")
         self.session = requests.Session()
         self.session.headers.update({
             'User-Agent': 'WorldBank-PDF-Downloader/1.0 (Document Query Service)',
@@ -294,7 +304,8 @@ class PDFDownloader:
         self.session.mount("http://", adapter)
         self.session.mount("https://", adapter)
         
-        print(f"✅ Session configured with retry strategy (3 retries, backoff)")
+        if self.verbose:
+            print(f"✅ Session configured with retry strategy (3 retries, backoff)")
         
         # Create directory structure
         self.setup_directories()
@@ -306,35 +317,42 @@ class PDFDownloader:
         self.heartbeat_thread = threading.Thread(target=self._heartbeat_worker, daemon=True)
         self.heartbeat_thread.start()
         
-        print(f"✅ PDF Downloader initialized successfully!")
-        print(f"   📁 Output directory: {self.output_dir.absolute()}")
-        print(f"   ⚡ Max workers: {self.max_workers}")
-        print(f"   ⏱️  Request delay: {self.delay_between_requests}s")
-        print(f"   🔊 Verbose logging: {'Enabled' if self.verbose else 'Disabled'}")
+        if self.verbose:
+            print(f"✅ PDF Downloader initialized successfully!")
+            print(f"   📁 Output directory: {self.output_dir.absolute()}")
+            print(f"   ⚡ Max workers: {self.max_workers}")
+            print(f"   ⏱️  Request delay: {self.delay_between_requests}s")
+            print(f"   🔊 Verbose logging: {'Enabled' if self.verbose else 'Disabled'}")
         
         # Test basic connectivity
         self._test_connectivity()
         
-        print("-" * 60)
+        if self.verbose:
+            print("-" * 60)
     
     def _test_connectivity(self):
         """Test basic internet connectivity."""
-        print("🌐 Testing internet connectivity...")
+        if self.verbose:
+            print("🌐 Testing internet connectivity...")
         try:
             import socket
             # Test DNS resolution for a reliable host
             socket.gethostbyname('www.google.com')
-            print("   ✅ Internet connectivity: OK")
+            if self.verbose:
+                print("   ✅ Internet connectivity: OK")
             
             # Test HTTP connectivity
             test_response = self.session.get('https://httpbin.org/status/200', timeout=10)
             if test_response.status_code == 200:
-                print("   ✅ HTTP requests: OK")
+                if self.verbose:
+                    print("   ✅ HTTP requests: OK")
             else:
-                print(f"   ⚠️  HTTP test returned status: {test_response.status_code}")
+                if self.verbose:
+                    print(f"   ⚠️  HTTP test returned status: {test_response.status_code}")
                 
         except Exception as e:
-            print(f"   ❌ Connectivity test failed: {e}")
+            if self.verbose:
+                print(f"   ❌ Connectivity test failed: {e}")
             print("   ⚠️  Downloads may fail due to network issues")
             self.logger.warning(f"Connectivity test failed: {e}")
         
@@ -361,7 +379,8 @@ class PDFDownloader:
         self.logger.info("PDF Downloader logging initialized")
         self.logger.info(f"Log file: {log_file}")
         
-        print(f"📝 Logging configured: {log_file}")
+        if self.verbose:
+            print(f"📝 Logging configured: {log_file}")
     
     def setup_signal_handlers(self):
         """Setup signal handlers for immediate shutdown."""
@@ -380,7 +399,8 @@ class PDFDownloader:
         
         signal.signal(signal.SIGINT, signal_handler)
         signal.signal(signal.SIGTERM, signal_handler)
-        print("🛡️  Signal handlers configured (Ctrl+C for graceful shutdown, twice for immediate exit)")
+        if self.verbose:
+            print("🛡️  Signal handlers configured (Ctrl+C for graceful shutdown, twice for immediate exit)")
     
     def _heartbeat_worker(self):
         """Background thread that provides periodic status updates."""
@@ -412,7 +432,8 @@ class PDFDownloader:
     
     def setup_directories(self):
         """Create organized directory structure for PDFs."""
-        print("📁 Creating directory structure...")
+        if self.verbose:
+            print("📁 Creating directory structure...")
         directories = [
             self.output_dir,
             self.output_dir / "by_country",
@@ -427,16 +448,22 @@ class PDFDownloader:
             if not directory.exists():
                 directory.mkdir(parents=True, exist_ok=True)
                 created_count += 1
-                print(f"   ✅ Created: {directory.name}/")
+                if self.verbose:
+                    print(f"   ✅ Created: {directory.name}/")
             else:
-                print(f"   ✓ Exists: {directory.name}/")
+                if self.verbose:
+                    print(f"   ✓ Exists: {directory.name}/")
         
-        print(f"📁 Directory structure ready ({created_count} new directories created)")
+        if self.verbose:
+            print(f"📁 Directory structure ready ({created_count} new directories created)")
         self.logger.info(f"Directory structure created in: {self.output_dir.absolute()}")
     
     def parse_sql_file(self, sql_file: str) -> List[Dict[str, str]]:
         """Parse SQL file to extract document metadata and PDF URLs."""
-        print(f"📖 Parsing SQL file: {sql_file}")
+        if self.verbose:
+            print(f"📖 Parsing SQL file: {sql_file}")
+        else:
+            print(f"📖 Reading {os.path.basename(sql_file)}...")
         self.logger.info(f"Starting to parse SQL file: {sql_file}")
         
         documents = []
@@ -445,21 +472,26 @@ class PDFDownloader:
             # Read file and show size
             file_path = Path(sql_file)
             file_size = file_path.stat().st_size
-            print(f"   📊 File size: {file_size:,} bytes ({file_size/1024/1024:.1f} MB)")
+            if self.verbose:
+                print(f"   📊 File size: {file_size:,} bytes ({file_size/1024/1024:.1f} MB)")
             
-            print("   📖 Reading file content...")
+            if self.verbose:
+                print("   📖 Reading file content...")
             with open(sql_file, 'r', encoding='utf-8') as f:
                 content = f.read()
             
-            print(f"   ✅ File loaded: {len(content):,} characters")
+            if self.verbose:
+                print(f"   ✅ File loaded: {len(content):,} characters")
             
             # Use a much simpler approach - find INSERT blocks and extract URLs directly
-            print("   🔍 Searching for document INSERT statements...")
+            if self.verbose:
+                print("   🔍 Searching for document INSERT statements...")
             
             # Split content into chunks to process incrementally
             chunk_size = 50000  # Process 50KB chunks
             total_chunks = (len(content) + chunk_size - 1) // chunk_size
-            print(f"   📦 Processing {total_chunks} chunks of ~{chunk_size/1000:.0f}KB each...")
+            if self.verbose:
+                print(f"   📦 Processing {total_chunks} chunks of ~{chunk_size/1000:.0f}KB each...")
             
             documents_found = 0
             pdf_count = 0
@@ -486,7 +518,8 @@ class PDFDownloader:
                 # Show progress only every 10 chunks to reduce verbosity
                 if chunk_num % 10 == 0 or chunk_num == total_chunks - 1:
                     progress = ((chunk_num + 1) / total_chunks) * 100
-                    print(f"   📈 Processing chunk {chunk_num + 1}/{total_chunks} ({progress:.1f}%) - Found {pdf_count} PDFs so far")
+                    if self.verbose:
+                        print(f"   📈 Processing chunk {chunk_num + 1}/{total_chunks} ({progress:.1f}%) - Found {pdf_count} PDFs so far")
                 
                 # Find all INSERT statements in this chunk
                 matches = re.finditer(insert_pattern, chunk, re.DOTALL | re.IGNORECASE)
@@ -552,8 +585,9 @@ class PDFDownloader:
                                 pdf_count += 1
             
             # Final progress update
-            print(f"   ✅ Parsing complete: {documents_found:,} records processed")
-            print(f"   📄 Found {len(documents)} documents with downloadable PDF URLs")
+            if self.verbose:
+                print(f"   ✅ Parsing complete: {documents_found:,} records processed")
+            print(f"📄 Found {len(documents)} documents with downloadable PDFs")
             
         except Exception as e:
             error_msg = f"Error parsing SQL file: {e}"
@@ -1233,16 +1267,19 @@ and URL have been preserved for future reference or manual download.
         
         self.total_documents = len(documents)
         
-        print(f"\n🚀 Starting PDF Download Session")
-        print(f"📊 Total documents to process: {len(documents)}")
-        print(f"📁 Output directory: {self.output_dir.absolute()}")
-        print(f"⚡ Max concurrent downloads: {self.max_workers}")
-        print(f"⏱️  Delay between requests: {self.delay_between_requests}s")
-        print(f"⏰ Download timeout: {self.timeout}s")
-        if self.max_downloads:
-            print(f"🔢 Max downloads limit: {self.max_downloads}")
-        print(f"🔗 Create organized links: {'Yes' if create_symlinks else 'No'}")
-        print("=" * 80)
+        if self.verbose:
+            print(f"\n🚀 Starting PDF Download Session")
+            print(f"📊 Total documents to process: {len(documents)}")
+            print(f"📁 Output directory: {self.output_dir.absolute()}")
+            print(f"⚡ Max concurrent downloads: {self.max_workers}")
+            print(f"⏱️  Delay between requests: {self.delay_between_requests}s")
+            print(f"⏰ Download timeout: {self.timeout}s")
+            if self.max_downloads:
+                print(f"🔢 Max downloads limit: {self.max_downloads}")
+            print(f"🔗 Create organized links: {'Yes' if create_symlinks else 'No'}")
+            print("=" * 80)
+        else:
+            print(f"📥 Downloading {len(documents)} PDFs...")
         
         self.logger.info(f"Starting download session: {len(documents)} documents, {self.max_workers} workers")
         
@@ -1250,10 +1287,11 @@ and URL have been preserved for future reference or manual download.
         countries = set(doc.get('country', 'Unknown') for doc in documents)
         doc_types = set(doc.get('major_doc_type', 'Unknown') for doc in documents)
         
-        print(f"📈 Document Analysis:")
-        print(f"   Countries: {len(countries)} ({', '.join(sorted(list(countries))[:5])}{'...' if len(countries) > 5 else ''})")
-        print(f"   Document Types: {len(doc_types)} ({', '.join(sorted(list(doc_types))[:3])}{'...' if len(doc_types) > 3 else ''})")
-        print("=" * 80)
+        if self.verbose:
+            print(f"📈 Document Analysis:")
+            print(f"   Countries: {len(countries)} ({', '.join(sorted(list(countries))[:5])}{'...' if len(countries) > 5 else ''})")
+            print(f"   Document Types: {len(doc_types)} ({', '.join(sorted(list(doc_types))[:3])}{'...' if len(doc_types) > 3 else ''})")
+            print("=" * 80)
         
         # Create download log
         log_file = self.output_dir / "logs" / f"download_log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
@@ -1269,12 +1307,14 @@ and URL have been preserved for future reference or manual download.
         total_batches = (len(documents) + 49) // 50  # Round up division
         
         # Download with thread pool and enhanced monitoring
-        print(f"🔄 Processing documents with {self.max_workers} concurrent workers...")
-        print(f"📦 Total batches: {total_batches} (50 documents per batch)\n")
+        if self.verbose:
+            print(f"🔄 Processing documents with {self.max_workers} concurrent workers...")
+            print(f"📦 Total batches: {total_batches} (50 documents per batch)\n")
         
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             # Submit all tasks
-            print(f"📋 Submitting {len(documents)} download tasks to thread pool...")
+            if self.verbose:
+                print(f"📋 Submitting {len(documents)} download tasks to thread pool...")
             futures = []
             for i, doc in enumerate(documents):
                 if self.shutdown_requested:
@@ -1283,8 +1323,9 @@ and URL have been preserved for future reference or manual download.
                 future = executor.submit(self.download_pdf, doc, create_symlinks)
                 futures.append(future)
             
-            print(f"✅ {len(futures)} tasks submitted to thread pool")
-            print(f"🎯 Starting parallel execution...\n")
+            if self.verbose:
+                print(f"✅ {len(futures)} tasks submitted to thread pool")
+                print(f"🎯 Starting parallel execution...\n")
             
             completed = 0
             last_update_time = time.time()
@@ -1458,9 +1499,10 @@ and URL have been preserved for future reference or manual download.
         except Exception as e:
             print(f"   ⚠️  Could not analyze failures: {e}")
 
-def print_banner():
+def print_banner(verbose=True):
     """Print startup banner."""
-    banner = """
+    if verbose:
+        banner = """
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║                        🌍 World Bank PDF Downloader 🌍                        ║
 ║                                                                              ║
@@ -1474,10 +1516,21 @@ def print_banner():
 ║  🚀 Starting up... Please wait for initialization to complete               ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
     """
-    print(banner)
+        print(banner)
+    else:
+        print("🌍 World Bank PDF Downloader - Starting...")
 
 def main():
-    print_banner()
+    # Parse args to get verbose/quiet flags early for banner
+    import sys
+    verbose = '--verbose' in sys.argv
+    quiet = '--quiet' in sys.argv
+    
+    # Default to quiet mode unless verbose is specified
+    if not verbose and not quiet:
+        quiet = True
+    
+    print_banner(verbose and not quiet)
     
     parser = argparse.ArgumentParser(
         description='Download PDFs from World Bank scraper output',
@@ -1490,7 +1543,7 @@ Examples:
   python pdf_downloader.py --input worldbank_data.sql
   
   # Download with custom settings
-  python pdf_downloader.py data.sql --output my_pdfs --max-workers 5
+  python pdf_downloader.py data.sql --output tmp/my_pdfs --max-workers 5
   
   # Download from database file
   python pdf_downloader.py mydb.sqlite --database --no-symlinks
@@ -1509,8 +1562,8 @@ Examples:
                        help='Input SQL file or database path (required)')
     parser.add_argument('input_file', nargs='?', 
                        help='Input SQL file or database path (positional argument)')
-    parser.add_argument('--output', type=str, default='pdfs',
-                       help='Output directory for PDFs (default: pdfs)')
+    parser.add_argument('--output', type=str, default='tmp/pdfs',
+                       help='Output directory for PDFs (default: tmp/pdfs)')
     parser.add_argument('--max-workers', type=int, default=3,
                        help='Maximum concurrent downloads (default: 3)')
     parser.add_argument('--max-downloads', type=int, 
@@ -1616,7 +1669,8 @@ Examples:
         print(f"   📦 Container: {args.azure_container}")
         print(f"   🔗 Connection: {'***configured***' if args.azure_connection_string else 'not configured'}")
     else:
-        print(f"📁 Using local storage: {args.output}")
+        if verbose and not quiet:
+            print(f"📁 Using local storage: {args.output}")
     
     # Configure database for status updates (disabled by default)
     update_database = args.enable_database_updates
@@ -1630,23 +1684,29 @@ Examples:
             'username': args.db_username,
             'password': args.db_password
         }
-        print(f"🗄️  Database updates: Enabled ({args.db_server}:{args.db_port}/{args.db_name})")
+        if verbose and not quiet:
+            print(f"🗄️  Database updates: Enabled ({args.db_server}:{args.db_port}/{args.db_name})")
     else:
-        print(f"🗄️  Database updates: Disabled (local mode)")
+        if verbose and not quiet:
+            print(f"🗄️  Database updates: Disabled (local mode)")
     
     # Configure SQL file updates (enabled by default for local mode)
     update_sql_file = args.update_sql_file and not args.no_sql_file_updates
-    if update_sql_file:
-        print(f"📝 SQL file updates: Enabled")
-    else:
-        print(f"📝 SQL file updates: Disabled")
+    if verbose and not quiet:
+        if update_sql_file:
+            print(f"📝 SQL file updates: Enabled")
+        else:
+            print(f"📝 SQL file updates: Disabled")
     
     # Create downloader with storage and database configuration
+    # Default to quiet mode unless verbose is explicitly requested
+    verbose_mode = args.verbose and not args.quiet
+    
     downloader = PDFDownloader(
         output_dir=args.output,
         max_workers=args.max_workers,
         delay_between_requests=args.delay,
-        verbose=verbose,
+        verbose=verbose_mode,
         test_failures=args.test_failures,
         storage_type=storage_type,
         storage_config=storage_config,

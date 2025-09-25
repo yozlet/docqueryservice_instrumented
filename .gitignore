@@ -598,3 +598,11 @@ scripts/test_pdfs/
 *.pdf
 
 # Add any project-specific ignores here
+# Temporary files and directories
+scripts/tmp/
+scripts/azurite_data/
+
+# Test files (keep structure but ignore generated data)
+scripts/test/test_*.sql
+scripts/test/test_error_analysis/
+scripts/test/test_retry/

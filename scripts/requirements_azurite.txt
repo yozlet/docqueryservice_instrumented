@@ -1,0 +1,12 @@
+# Requirements for Azurite PDF Downloader
+# Core dependencies
+requests>=2.31.0
+psycopg2-binary>=2.9.7
+pyodbc>=4.0.39
+
+# Azure Blob Storage for Azurite
+azure-storage-blob>=12.19.0
+azure-core>=1.29.0
+
+# Optional but recommended
+urllib3>=2.0.0

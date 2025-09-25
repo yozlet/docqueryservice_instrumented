@@ -18,6 +18,8 @@ import re
 
 # Try to import database utilities (optional)
 try:
+    # Import from utilities directory
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'utilities'))
     from database import DatabaseManager, DatabaseConfig
     DATABASE_AVAILABLE = True
 except ImportError:

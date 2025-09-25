@@ -13,7 +13,7 @@ NC='\033[0m'
 
 # Configuration
 DB_NAME="docqueryservice"
-SAMPLE_DOCS=200
+SAMPLE_DOCS=10
 VENV_DIR=".venv"
 PYTHON_CMD="python3"
 CLEANUP_ON_START=false  # Set to true for testing to always start clean
@@ -62,9 +62,42 @@ echo -e "${BLUE} Document Query Service Database Setup${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo ""
 
-# Show cleanup mode if enabled
+# Show cleanup mode if enabled and do cleanup first
 if [ "$1" = "--clean" ]; then
     echo -e "${YELLOW}🧽 CLEANUP MODE: Will clear database and PDFs before setup${NC}"
+    echo ""
+    
+    # Do cleanup first, before any setup
+    cleanup_for_testing() {
+        echo -e "${YELLOW}Cleaning up database and PDFs for fresh start...${NC}"
+        
+        # Clean PDFs first
+        if [ -d "tmp/pdfs" ]; then
+            echo -e "${YELLOW}Removing existing PDFs...${NC}"
+            rm -rf tmp/pdfs
+            echo -e "${GREEN}✅ PDFs cleaned${NC}"
+        fi
+        
+        # Clean database
+        if [ -f "utilities/cleanup-database.sh" ]; then
+            echo -e "${YELLOW}Cleaning database...${NC}"
+            utilities/cleanup-database.sh --confirm --yes
+            if [ $? -eq 0 ]; then
+                echo -e "${GREEN}✅ Database cleaned${NC}"
+            else
+                echo -e "${YELLOW}⚠️  Database cleanup failed (may be empty already)${NC}"
+            fi
+        fi
+        
+        # Clean SQL files
+        if [ -f "tmp/sample_data.sql" ]; then
+            echo -e "${YELLOW}Removing old sample data file...${NC}"
+            rm -f tmp/sample_data.sql
+            echo -e "${GREEN}✅ Sample data file cleaned${NC}"
+        fi
+    }
+    
+    cleanup_for_testing
     echo ""
 fi
 
@@ -151,7 +184,7 @@ echo -e "${GREEN}✅ Python dependencies installed${NC}"
 
 # Test database connection and setup
 echo -e "${YELLOW}Setting up database schema...${NC}"
-if python database.py > /dev/null 2>&1; then
+if python utilities/database.py > /dev/null 2>&1; then
     echo -e "${GREEN}✅ Database schema initialized${NC}"
 else
     echo -e "${RED}❌ Database setup failed${NC}"
@@ -178,12 +211,12 @@ fi
 echo -e "${YELLOW}Loading sample data from World Bank API...${NC}"
 
 # Generate SQL file first (always use this method for PDF integration)
-if python worldbank_scraper.py --count $SAMPLE_DOCS --output sample_data.sql; then
+if python worldbank_scraper.py --count $SAMPLE_DOCS --output tmp/sample_data.sql; then
     echo -e "${GREEN}✅ Document data generated successfully${NC}"
     
     # Download PDFs for the documents (this updates the SQL file)
     
-    if python pdf_downloader.py sample_data.sql --update-sql-file; then
+    if python pdf_downloader.py tmp/sample_data.sql --update-sql-file; then
         echo -e "${GREEN}✅ PDF downloads completed successfully${NC}"
     else
         echo -e "${YELLOW}⚠️  PDF download process completed with some failures (non-critical)${NC}"
@@ -192,7 +225,7 @@ if python worldbank_scraper.py --count $SAMPLE_DOCS --output sample_data.sql; th
     
     # Copy updated SQL file to container and run it
     echo -e "${YELLOW}Loading data into database...${NC}"
-    docker cp sample_data.sql docquery-postgres:/tmp/sample_data.sql
+    docker cp tmp/sample_data.sql docquery-postgres:/tmp/sample_data.sql
     docker exec docquery-postgres psql -U postgres -d "$DB_NAME" -f /tmp/sample_data.sql
     
     if [ $? -eq 0 ]; then
@@ -214,40 +247,7 @@ else
     echo -e "${YELLOW}⚠️  Trigram extension setup failed (non-critical)${NC}"
 fi
 
-# Cleanup function for testing
-cleanup_for_testing() {
-    echo -e "${YELLOW}Cleaning up database and PDFs for fresh start...${NC}"
-    
-    # Clean database
-    if [ -f "cleanup-database.sh" ]; then
-        echo -e "${YELLOW}Cleaning database...${NC}"
-        ./cleanup-database.sh --confirm
-        if [ $? -eq 0 ]; then
-            echo -e "${GREEN}✅ Database cleaned${NC}"
-        else
-            echo -e "${YELLOW}⚠️  Database cleanup failed (may be empty already)${NC}"
-        fi
-    fi
-    
-    # Clean PDFs
-    if [ -d "pdfs" ]; then
-        echo -e "${YELLOW}Removing existing PDFs...${NC}"
-        rm -rf pdfs
-        echo -e "${GREEN}✅ PDFs cleaned${NC}"
-    fi
-    
-    # Clean SQL files
-    if [ -f "sample_data.sql" ]; then
-        echo -e "${YELLOW}Removing old sample data file...${NC}"
-        rm -f sample_data.sql
-        echo -e "${GREEN}✅ Sample data file cleaned${NC}"
-    fi
-}
-
-# Check if cleanup is requested or if we're in testing mode
-if [ "$1" = "--clean" ] || [ "$CLEANUP_ON_START" = "true" ]; then
-    cleanup_for_testing
-fi
+# Cleanup is now handled at the beginning of the script when --clean is passed
 
 # Test the setup
 echo -e "${YELLOW}Testing database setup...${NC}"
@@ -288,7 +288,7 @@ echo -e "  # Add more documents"
 echo -e "  python worldbank_scraper.py --count 1000 --database"
 echo ""
 echo -e "  # Test database operations"
-echo -e "  python database.py"
+echo -e "  python utilities/database.py"
 echo ""
 echo -e "  # Clean database and PDFs for testing"
 echo -e "  ./setup-database.sh --clean"
