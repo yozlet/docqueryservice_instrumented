@@ -1,19 +1,19 @@
 #!/bin/bash
 
-# Check if PID file exists
-if [ -f ./run/uvicorn.pid ]; then
-    # Read PID from file
-    PID=$(cat ./run/uvicorn.pid)
-    
-    # Check if process is running
-    if ps -p $PID > /dev/null; then
-        echo "Stopping uvicorn server (PID: $PID)..."
-        kill $PID
-        rm ./run/uvicorn.pid
-    else
-        echo "Process not running, removing stale PID file..."
-        rm ./run/uvicorn.pid
+# Function to kill python processes
+kill_python_processes() {
+    # Find and kill all node processes running react-scripts
+    PYTHON_PIDS=$(ps aux | grep "python3" | awk '{print $2}')
+    if [ ! -z "$PYTHON_PIDS" ]; then
+        echo "Killing python processes..."
+        for pid in $PYTHON_PIDS; do
+            echo "Killing process $pid..."
+            kill -9 $pid 2>/dev/null
+        done
     fi
-else
-    echo "No PID file found."
-fi
+}
+
+# Kill any remaining python processes
+kill_python_processes
+
+echo "All python development processes have been stopped."

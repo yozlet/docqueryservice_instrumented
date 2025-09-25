@@ -101,8 +101,3 @@ fi
 
 # Clean up temporary env file
 rm -f "$ENV_FILE"
-
-UVICORN_PID=$(ps aux | grep 'uvicorn app.main:app' | grep -v grep | awk '{print $2}')
-# Store the PID in a file
-echo "$UVICORN_PID" > run/uvicorn.pid
-echo "Uvicorn PID: $UVICORN_PID"
