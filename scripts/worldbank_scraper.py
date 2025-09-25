@@ -295,7 +295,7 @@ class WorldBankScraper:
         print(f"Languages: {len(languages)}")
         print(f"Document Types: {len(doctypes)}")
     
-    def insert_to_database(self, docs: List[Dict[str, Any]], db_config: Optional[DatabaseConfig] = None) -> bool:
+    def insert_to_database(self, docs: List[Dict[str, Any]], db_config: Optional[Any] = None) -> bool:
         """Insert documents directly into SQL Server database"""
         if not DATABASE_AVAILABLE:
             print("Database functionality not available. Install pymssql to use this feature.")
@@ -412,11 +412,11 @@ def main():
             # Insert to database if requested
             if args.database:
                 if DATABASE_AVAILABLE:
-                    db_config = DatabaseConfig(
-                        host=args.db_host,
-                        port=args.db_port,
-                        database=args.db_name
-                    )
+                    db_config = {
+                        'host': args.db_host,
+                        'port': args.db_port,
+                        'database': args.db_name
+                    }
                     if scraper.insert_to_database(docs, db_config):
                         success = True
                         print(f"\nSuccess! Inserted {len(docs)} documents into database.")

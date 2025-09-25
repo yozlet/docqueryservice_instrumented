@@ -22,6 +22,8 @@ CREATE TABLE documents (
     volnb INTEGER,
     totvolnb INTEGER,
     url VARCHAR(2048),
+    document_location VARCHAR(1024), -- Path to downloaded PDF file on disk
+    document_status VARCHAR(50) DEFAULT 'PENDING', -- Document download status: PENDING, DOWNLOADED, NOT_FOUND, FAILED, URL_ONLY
     
     -- Language and country
     lang VARCHAR(50),
@@ -107,6 +109,7 @@ CREATE INDEX idx_documents_lang ON documents(lang);
 CREATE INDEX idx_documents_country ON documents(country);
 CREATE INDEX idx_documents_docty ON documents(docty);
 CREATE INDEX idx_documents_majdocty ON documents(majdocty);
+CREATE INDEX idx_documents_document_status ON documents(document_status);
 
 -- Composite indexes for common query patterns
 CREATE INDEX idx_documents_country_date ON documents(country, docdt);
@@ -153,6 +156,8 @@ SELECT
     d.volnb,
     d.totvolnb,
     d.url,
+    d.document_location,
+    d.document_status,
     d.lang,
     d.country,
     d.author,
@@ -164,7 +169,7 @@ LEFT JOIN document_countries dc ON d.id = dc.document_id
 LEFT JOIN countries c ON dc.country_id = c.id
 LEFT JOIN document_tags dt ON d.id = dt.document_id
 GROUP BY d.id, d.title, d.docdt, d.abstract, d.docty, d.majdocty, 
-         d.volnb, d.totvolnb, d.url, d.lang, d.country, d.author, d.publisher;
+         d.volnb, d.totvolnb, d.url, d.document_location, d.document_status, d.lang, d.country, d.author, d.publisher;
 
 -- Facet counts view for API responses
 CREATE VIEW document_facets AS
@@ -186,7 +191,12 @@ UNION ALL
 SELECT 'major_document_type' as facet_type, majdocty as facet_value, COUNT(*) as count
 FROM documents 
 WHERE majdocty IS NOT NULL
-GROUP BY majdocty;
+GROUP BY majdocty
+UNION ALL
+SELECT 'document_status' as facet_type, document_status as facet_value, COUNT(*) as count
+FROM documents 
+WHERE document_status IS NOT NULL
+GROUP BY document_status;
 
 -- SQL Server compatibility notes:
 -- 1. Replace SERIAL with IDENTITY(1,1)

@@ -13,7 +13,7 @@ NC='\033[0m'
 
 # Configuration
 DB_NAME="docqueryservice"
-SAMPLE_DOCS=500
+SAMPLE_DOCS=50
 VENV_DIR=".venv"
 PYTHON_CMD="python3"
 
@@ -171,25 +171,34 @@ fi
 echo -e "${YELLOW}Loading sample data from World Bank API...${NC}"
 echo -e "${YELLOW}Fetching $SAMPLE_DOCS documents (this may take a few minutes)...${NC}"
 
-if python worldbank_scraper.py --count $SAMPLE_DOCS --database > /dev/null 2>&1; then
-    echo -e "${GREEN}✅ Sample data loaded successfully${NC}"
-else
-    echo -e "${YELLOW}Direct database insertion failed, trying SQL file method...${NC}"
+# Generate SQL file first (always use this method for PDF integration)
+echo -e "${YELLOW}Generating SQL file with document data...${NC}"
+if python worldbank_scraper.py --count $SAMPLE_DOCS --output sample_data.sql > /dev/null 2>&1; then
+    echo -e "${GREEN}✅ Document data generated successfully${NC}"
     
-    # Generate SQL file and run it
-    if python worldbank_scraper.py --count $SAMPLE_DOCS --output /sample_data.sql; then
-        # Copy SQL file to container and run it
-        docker cp /sample_data.sql docquery-postgres:/tmp/sample_data.sql
-        docker exec docquery-postgres psql -U postgres -d "$DB_NAME" -f /tmp/sample_data.sql
-        
-        if [ $? -eq 0 ]; then
-            echo -e "${GREEN}✅ Sample data loaded via SQL file${NC}"
-        else
-            echo -e "${YELLOW}⚠️  Sample data loading failed, but database is ready${NC}"
-        fi
+    # Download PDFs for the documents (this updates the SQL file)
+    echo -e "${YELLOW}Downloading PDF files for documents...${NC}"
+    echo -e "${YELLOW}This may take several minutes depending on the number of documents...${NC}"
+    
+    if python pdf_downloader.py sample_data.sql > /dev/null 2>&1; then
+        echo -e "${GREEN}✅ PDF downloads completed successfully${NC}"
     else
-        echo -e "${YELLOW}⚠️  Could not fetch sample data, but database is ready${NC}"
+        echo -e "${YELLOW}⚠️  PDF download process completed with some failures (non-critical)${NC}"
+        echo -e "${YELLOW}   Documents without PDFs will still be searchable by metadata${NC}"
     fi
+    
+    # Copy updated SQL file to container and run it
+    echo -e "${YELLOW}Loading data into database...${NC}"
+    docker cp sample_data.sql docquery-postgres:/tmp/sample_data.sql
+    docker exec docquery-postgres psql -U postgres -d "$DB_NAME" -f /tmp/sample_data.sql
+    
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}✅ Sample data loaded successfully${NC}"
+    else
+        echo -e "${YELLOW}⚠️  Sample data loading failed, but database is ready${NC}"
+    fi
+else
+    echo -e "${YELLOW}⚠️  Could not fetch sample data, but database is ready${NC}"
 fi
 
 # Enable trigram extension if not already enabled

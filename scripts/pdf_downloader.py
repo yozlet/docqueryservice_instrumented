@@ -182,7 +182,8 @@ class PDFDownloader:
                  delay_between_requests: float = 1.0, verbose: bool = True, test_failures: bool = False,
                  storage_type: StorageType = StorageType.LOCAL, storage_config: Optional[Dict[str, str]] = None,
                  update_database: bool = False, db_config: Optional[Dict[str, str]] = None,
-                 update_sql_file: bool = True, sql_file_path: Optional[str] = None):
+                 update_sql_file: bool = True, sql_file_path: Optional[str] = None,
+                 max_downloads: Optional[int] = None, timeout: int = 30):
         print("🚀 Initializing PDF Downloader...")
         
         self.output_dir = Path(output_dir)
@@ -190,6 +191,8 @@ class PDFDownloader:
         self.delay_between_requests = delay_between_requests
         self.verbose = verbose
         self.test_failures = test_failures
+        self.max_downloads = max_downloads
+        self.timeout = timeout
         self.start_time = time.time()
         self.last_heartbeat = time.time()
         
@@ -747,8 +750,13 @@ class PDFDownloader:
                     result = f"{match.group(1)}'{new_status}'{match.group(2)}"
                     if new_location:
                         # Try to update document_location field if it exists in the INSERT
-                        # This is a simple approach - in practice, you might want more sophisticated SQL parsing
-                        result = result.replace("NULL,", f"'{new_location}',", 1)  # Replace first NULL with location
+                        # Need to be more specific - replace the document_location NULL, not volnb/totvolnb NULLs
+                        # Look for the pattern: url, NULL, status and replace the NULL between them
+                        # The status could be 'PENDING', 'DOWNLOADED', etc.
+                        # Handle multi-line pattern with whitespace and newlines
+                        url_location_pattern = r"('https?://[^']+'),\s*\n\s*NULL,\s*\n\s*('[^']*')"
+                        if re.search(url_location_pattern, result, re.MULTILINE):
+                            result = re.sub(url_location_pattern, rf"\1,\n    '{new_location}',\n    \2", result, flags=re.MULTILINE)
                     return result
                 
                 content = re.sub(pattern, replace_status, content, flags=re.DOTALL)
@@ -886,7 +894,7 @@ class PDFDownloader:
         print(f"   📡 Initiating HTTP request...")
         
         try:
-            response = self.session.get(url, stream=True, timeout=30)
+            response = self.session.get(url, stream=True, timeout=self.timeout)
             response.raise_for_status()
             
             connection_time = time.time() - download_start
@@ -894,7 +902,7 @@ class PDFDownloader:
             self.logger.info(f"HTTP connection established in {connection_time:.2f}s")
             
         except requests.exceptions.Timeout:
-            print(f"   ⏰ Request timeout (30s) - server may be slow")
+            print(f"   ⏰ Request timeout ({self.timeout}s) - server may be slow")
             raise
         except requests.exceptions.ConnectionError as e:
             print(f"   🔌 Connection error: {e}")
@@ -1193,6 +1201,11 @@ and URL have been preserved for future reference or manual download.
     def download_documents(self, documents: List[Dict[str, str]], 
                           create_symlinks: bool = True) -> Dict[str, int]:
         """Download multiple documents with threading."""
+        # Apply max_downloads limit if specified
+        if self.max_downloads and len(documents) > self.max_downloads:
+            print(f"📊 Limiting downloads to {self.max_downloads} documents (out of {len(documents)} available)")
+            documents = documents[:self.max_downloads]
+        
         self.total_documents = len(documents)
         
         print(f"\n🚀 Starting PDF Download Session")
@@ -1200,6 +1213,9 @@ and URL have been preserved for future reference or manual download.
         print(f"📁 Output directory: {self.output_dir.absolute()}")
         print(f"⚡ Max concurrent downloads: {self.max_workers}")
         print(f"⏱️  Delay between requests: {self.delay_between_requests}s")
+        print(f"⏰ Download timeout: {self.timeout}s")
+        if self.max_downloads:
+            print(f"🔢 Max downloads limit: {self.max_downloads}")
         print(f"🔗 Create organized links: {'Yes' if create_symlinks else 'No'}")
         print("=" * 80)
         
@@ -1440,29 +1456,40 @@ def main():
         description='Download PDFs from World Bank scraper output',
         epilog="""
 Examples:
-  # Local storage with database updates (default)
+  # Download from SQL file (positional argument - recommended)
+  python pdf_downloader.py sample_data.sql
+  
+  # Download from SQL file (named argument)
   python pdf_downloader.py --input worldbank_data.sql
   
-  # Disable database status updates
-  python pdf_downloader.py --input worldbank_data.sql --no-database-updates
+  # Download with custom settings
+  python pdf_downloader.py data.sql --output my_pdfs --max-workers 5
   
-  # Custom database connection
-  python pdf_downloader.py --input worldbank_data.sql \\
-    --db-server myserver --db-name MyDatabase --db-username myuser
+  # Download from database file
+  python pdf_downloader.py mydb.sqlite --database --no-symlinks
   
   # Azure Blob Storage
-  python pdf_downloader.py --input worldbank_data.sql --storage azure_blob \\
+  python pdf_downloader.py data.sql --storage azure_blob \\
     --azure-connection-string "DefaultEndpointsProtocol=https;AccountName=..." \\
     --azure-container "documents"
+  
+  # Run from setup script (automatic file detection)
+  python pdf_downloader.py --max-downloads 50 --timeout 30
         """,
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument('--input', type=str, 
-                       help='Input SQL file or database path')
+                       help='Input SQL file or database path (required)')
+    parser.add_argument('input_file', nargs='?', 
+                       help='Input SQL file or database path (positional argument)')
     parser.add_argument('--output', type=str, default='pdfs',
                        help='Output directory for PDFs (default: pdfs)')
     parser.add_argument('--max-workers', type=int, default=3,
                        help='Maximum concurrent downloads (default: 3)')
+    parser.add_argument('--max-downloads', type=int, 
+                       help='Maximum number of files to download (default: no limit)')
+    parser.add_argument('--timeout', type=int, default=30,
+                       help='Timeout for each download in seconds (default: 30)')
     parser.add_argument('--delay', type=float, default=1.0,
                        help='Delay between requests in seconds (default: 1.0)')
     parser.add_argument('--no-symlinks', action='store_true',
@@ -1509,16 +1536,35 @@ Examples:
     if args.verbose:
         verbose = True
     
-    if not args.input:
-        # Try to find default files
-        sql_file = 'scripts/worldbank_data.sql'
-        if os.path.exists(sql_file):
-            args.input = sql_file
-            print(f"Using default SQL file: {sql_file}")
-        else:
-            print("Error: No input file specified and no default file found.")
-            print("Use --input to specify a SQL file or database path.")
+    # Handle input file from positional argument or --input flag
+    input_file = args.input_file or args.input
+    
+    if not input_file:
+        # Try to find default files in common locations
+        potential_files = [
+            'sample_data.sql',           # Current directory
+            'scripts/sample_data.sql',   # Scripts directory
+            'worldbank_data.sql',        # Legacy name
+            'scripts/worldbank_data.sql' # Legacy location
+        ]
+        
+        for sql_file in potential_files:
+            if os.path.exists(sql_file):
+                input_file = sql_file
+                print(f"📄 Using default SQL file: {sql_file}")
+                break
+        
+        if not input_file:
+            print("❌ Error: No input file specified and no default file found.")
+            print("\nUsage:")
+            print("  python pdf_downloader.py <input_file>")
+            print("  python pdf_downloader.py --input <input_file>")
+            print("\nSearched for these files:")
+            for f in potential_files:
+                print(f"  - {f}")
             sys.exit(1)
+    
+    args.input = input_file
     
     if not os.path.exists(args.input):
         print(f"Error: Input file not found: {args.input}")
@@ -1580,7 +1626,9 @@ Examples:
         update_database=update_database,
         db_config=db_config,
         update_sql_file=update_sql_file,
-        sql_file_path=args.input if update_sql_file else None
+        sql_file_path=args.input if update_sql_file else None,
+        max_downloads=args.max_downloads,
+        timeout=args.timeout
     )
     
     # Download PDFs with timeout protection
