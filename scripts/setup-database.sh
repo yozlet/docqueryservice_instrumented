@@ -13,9 +13,10 @@ NC='\033[0m'
 
 # Configuration
 DB_NAME="docqueryservice"
-SAMPLE_DOCS=50
+SAMPLE_DOCS=200
 VENV_DIR=".venv"
 PYTHON_CMD="python3"
+CLEANUP_ON_START=false  # Set to true for testing to always start clean
 
 # Function to check if virtual environment exists
 check_venv() {
@@ -60,6 +61,12 @@ echo -e "${BLUE}========================================${NC}"
 echo -e "${BLUE} Document Query Service Database Setup${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo ""
+
+# Show cleanup mode if enabled
+if [ "$1" = "--clean" ]; then
+    echo -e "${YELLOW}🧽 CLEANUP MODE: Will clear database and PDFs before setup${NC}"
+    echo ""
+fi
 
 # Check if Docker is running
 echo -e "${YELLOW}Checking Docker...${NC}"
@@ -169,18 +176,14 @@ fi
 
 # Load sample data
 echo -e "${YELLOW}Loading sample data from World Bank API...${NC}"
-echo -e "${YELLOW}Fetching $SAMPLE_DOCS documents (this may take a few minutes)...${NC}"
 
 # Generate SQL file first (always use this method for PDF integration)
-echo -e "${YELLOW}Generating SQL file with document data...${NC}"
-if python worldbank_scraper.py --count $SAMPLE_DOCS --output sample_data.sql > /dev/null 2>&1; then
+if python worldbank_scraper.py --count $SAMPLE_DOCS --output sample_data.sql; then
     echo -e "${GREEN}✅ Document data generated successfully${NC}"
     
     # Download PDFs for the documents (this updates the SQL file)
-    echo -e "${YELLOW}Downloading PDF files for documents...${NC}"
-    echo -e "${YELLOW}This may take several minutes depending on the number of documents...${NC}"
     
-    if python pdf_downloader.py sample_data.sql > /dev/null 2>&1; then
+    if python pdf_downloader.py sample_data.sql --update-sql-file; then
         echo -e "${GREEN}✅ PDF downloads completed successfully${NC}"
     else
         echo -e "${YELLOW}⚠️  PDF download process completed with some failures (non-critical)${NC}"
@@ -209,6 +212,41 @@ if [ $? -eq 0 ]; then
     echo -e "${GREEN}✅ Trigram search extension enabled${NC}"
 else
     echo -e "${YELLOW}⚠️  Trigram extension setup failed (non-critical)${NC}"
+fi
+
+# Cleanup function for testing
+cleanup_for_testing() {
+    echo -e "${YELLOW}Cleaning up database and PDFs for fresh start...${NC}"
+    
+    # Clean database
+    if [ -f "cleanup-database.sh" ]; then
+        echo -e "${YELLOW}Cleaning database...${NC}"
+        ./cleanup-database.sh --confirm
+        if [ $? -eq 0 ]; then
+            echo -e "${GREEN}✅ Database cleaned${NC}"
+        else
+            echo -e "${YELLOW}⚠️  Database cleanup failed (may be empty already)${NC}"
+        fi
+    fi
+    
+    # Clean PDFs
+    if [ -d "pdfs" ]; then
+        echo -e "${YELLOW}Removing existing PDFs...${NC}"
+        rm -rf pdfs
+        echo -e "${GREEN}✅ PDFs cleaned${NC}"
+    fi
+    
+    # Clean SQL files
+    if [ -f "sample_data.sql" ]; then
+        echo -e "${YELLOW}Removing old sample data file...${NC}"
+        rm -f sample_data.sql
+        echo -e "${GREEN}✅ Sample data file cleaned${NC}"
+    fi
+}
+
+# Check if cleanup is requested or if we're in testing mode
+if [ "$1" = "--clean" ] || [ "$CLEANUP_ON_START" = "true" ]; then
+    cleanup_for_testing
 fi
 
 # Test the setup
@@ -251,6 +289,9 @@ echo -e "  python worldbank_scraper.py --count 1000 --database"
 echo ""
 echo -e "  # Test database operations"
 echo -e "  python database.py"
+echo ""
+echo -e "  # Clean database and PDFs for testing"
+echo -e "  ./setup-database.sh --clean"
 echo ""
 echo -e "  # Stop the database"
 echo -e "  docker-compose down"

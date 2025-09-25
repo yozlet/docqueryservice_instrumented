@@ -483,9 +483,10 @@ class PDFDownloader:
                 
                 chunk = content[start_pos:end_pos]
                 
-                # Show progress
-                progress = ((chunk_num + 1) / total_chunks) * 100
-                print(f"   📈 Processing chunk {chunk_num + 1}/{total_chunks} ({progress:.1f}%) - Found {pdf_count} PDFs so far")
+                # Show progress only every 10 chunks to reduce verbosity
+                if chunk_num % 10 == 0 or chunk_num == total_chunks - 1:
+                    progress = ((chunk_num + 1) / total_chunks) * 100
+                    print(f"   📈 Processing chunk {chunk_num + 1}/{total_chunks} ({progress:.1f}%) - Found {pdf_count} PDFs so far")
                 
                 # Find all INSERT statements in this chunk
                 matches = re.finditer(insert_pattern, chunk, re.DOTALL | re.IGNORECASE)
@@ -809,10 +810,10 @@ class PDFDownloader:
         
         # Generate filename
         title_display = doc.get('title', 'Unknown Title')[:60]
-        if attempt == 1:  # Only show initial processing message on first attempt
-            print(f"🔍 [{current_position}/{self.total_documents}] Processing: {title_display}...")
+        # Only log to file, no console output for individual downloads unless verbose
+        if attempt == 1:
             self.logger.info(f"Starting download {current_position}: {title_display}")
-        else:
+        elif self.verbose:  # Only show retries in verbose mode
             print(f"🔄 [{current_position}/{self.total_documents}] Retry {attempt}/{total_attempts}: {title_display}...")
         
         # Test failure simulation
@@ -843,20 +844,30 @@ class PDFDownloader:
                     raise error_class(error_msg)
         
         # Network diagnostics
-        print(f"   🌐 URL: {url}")
-        parsed_url = urlparse(url)
-        print(f"   🏠 Host: {parsed_url.netloc}")
-        
-        # Test connectivity first
-        print(f"   🔌 Testing connectivity to {parsed_url.netloc}...")
-        try:
-            import socket
-            host = parsed_url.netloc.split(':')[0]  # Remove port if present
-            socket.gethostbyname(host)
-            print(f"   ✅ DNS resolution successful")
-        except socket.gaierror as e:
-            print(f"   ❌ DNS resolution failed: {e}")
-            raise Exception(f"DNS resolution failed for {host}: {e}")
+        if self.verbose:  # Only show detailed network info in verbose mode
+            print(f"   🌐 URL: {url}")
+            parsed_url = urlparse(url)
+            print(f"   🏠 Host: {parsed_url.netloc}")
+            
+            # Test connectivity first
+            print(f"   🔌 Testing connectivity to {parsed_url.netloc}...")
+            try:
+                import socket
+                host = parsed_url.netloc.split(':')[0]  # Remove port if present
+                socket.gethostbyname(host)
+                print(f"   ✅ DNS resolution successful")
+            except socket.gaierror as e:
+                print(f"   ❌ DNS resolution failed: {e}")
+                raise Exception(f"DNS resolution failed for {host}: {e}")
+        else:
+            parsed_url = urlparse(url)
+            try:
+                import socket
+                host = parsed_url.netloc.split(':')[0]  # Remove port if present
+                socket.gethostbyname(host)
+            except socket.gaierror as e:
+                print(f"   ❌ DNS resolution failed: {e}")
+                raise Exception(f"DNS resolution failed for {host}: {e}")
         
         original_filename = Path(unquote(parsed_url.path)).name
         
@@ -887,18 +898,20 @@ class PDFDownloader:
             return True
         
         # Download the file
-        print(f"   ⬇ Starting download: {original_filename}")
+        if self.verbose:
+            print(f"   ⬇ Starting download: {original_filename}")
+            print(f"   📡 Initiating HTTP request...")
         
         # Start download with enhanced progress tracking
         download_start = time.time()
-        print(f"   📡 Initiating HTTP request...")
         
         try:
             response = self.session.get(url, stream=True, timeout=self.timeout)
             response.raise_for_status()
             
             connection_time = time.time() - download_start
-            print(f"   ✅ Connection established ({connection_time:.2f}s)")
+            if self.verbose:
+                print(f"   ✅ Connection established ({connection_time:.2f}s)")
             self.logger.info(f"HTTP connection established in {connection_time:.2f}s")
             
         except requests.exceptions.Timeout:
@@ -918,12 +931,13 @@ class PDFDownloader:
         
         # Analyze response headers
         content_type = response.headers.get('content-type', '').lower()
-        print(f"   📋 Content-Type: {content_type}")
-        
-        if total_size:
-            print(f"   📊 Expected size: {total_size:,} bytes ({total_size/1024/1024:.1f} MB)")
-        else:
-            print(f"   📊 Size: Unknown (no Content-Length header)")
+        if self.verbose:
+            print(f"   📋 Content-Type: {content_type}")
+            
+            if total_size:
+                print(f"   📊 Expected size: {total_size:,} bytes ({total_size/1024/1024:.1f} MB)")
+            else:
+                print(f"   📊 Size: Unknown (no Content-Length header)")
         
         # Check if it's actually a PDF
         if 'pdf' not in content_type and not url.lower().endswith('.pdf'):
@@ -936,7 +950,8 @@ class PDFDownloader:
         last_progress_size = 0
         file_content = bytearray()
         
-        print(f"   💾 Downloading to {self.storage_type.value} storage: {original_filename}")
+        if self.verbose:
+            print(f"   💾 Downloading to {self.storage_type.value} storage: {original_filename}")
         
         for chunk in response.iter_content(chunk_size=8192):
             if self.shutdown_requested:
@@ -970,7 +985,8 @@ class PDFDownloader:
             print()  # New line after progress
         
         # Save file using storage backend
-        print(f"   💾 Saving to {self.storage_type.value} storage...")
+        if self.verbose:
+            print(f"   💾 Saving to {self.storage_type.value} storage...")
         save_success = self.storage.save_file(original_filename, bytes(file_content))
         
         if not save_success:
@@ -982,9 +998,10 @@ class PDFDownloader:
         final_size = len(file_content)
         avg_speed = final_size / download_time if download_time > 0 else 0
         
-        print(f"   ✅ Download complete: {final_size:,} bytes in {download_time:.1f}s")
-        print(f"   ⚡ Average speed: {avg_speed/1024:.1f} KB/s")
-        print(f"   💾 Saved to {self.storage_type.value} storage: {original_filename}")
+        if self.verbose:
+            print(f"   ✅ Download complete: {final_size:,} bytes in {download_time:.1f}s")
+            print(f"   ⚡ Average speed: {avg_speed/1024:.1f} KB/s")
+            print(f"   💾 Saved to {self.storage_type.value} storage: {original_filename}")
         
         # Verify download integrity
         if total_size and final_size != total_size:
@@ -995,7 +1012,8 @@ class PDFDownloader:
         
         # Create organized copies/symlinks (only for local storage)
         if create_symlinks and self.storage_type == StorageType.LOCAL:
-            print(f"   🔗 Creating organized links...")
+            if self.verbose:
+                print(f"   🔗 Creating organized links...")
             symlinks_created = 0
             for path_type, path in file_paths.items():
                 if path_type != 'main':
@@ -1014,8 +1032,9 @@ class PDFDownloader:
                         shutil.copy2(main_path, path)
                         symlinks_created += 1
             
-            print(f"   🗂️  Created {symlinks_created} organized copies")
-        elif create_symlinks and self.storage_type == StorageType.AZURE_BLOB:
+            if self.verbose:
+                print(f"   🗂️  Created {symlinks_created} organized copies")
+        elif create_symlinks and self.storage_type == StorageType.AZURE_BLOB and self.verbose:
             print(f"   ℹ️  Organized links not supported with Azure Blob Storage")
         
         with self.lock:
@@ -1028,21 +1047,27 @@ class PDFDownloader:
         if doc_id:
             self.update_document_status(doc_id, 'DOWNLOADED', original_filename)
         
-        print(f"✅ {current_progress} SUCCESS: {original_filename}")
-        print(f"   📍 Country: {doc.get('country', 'Unknown')} | Type: {doc.get('major_doc_type', 'Unknown')}")
+        if self.verbose:
+            print(f"✅ {current_progress} SUCCESS: {original_filename}")
+            print(f"   📍 Country: {doc.get('country', 'Unknown')} | Type: {doc.get('major_doc_type', 'Unknown')}")
         
-        # Rate limiting with countdown
+        # Rate limiting (no countdown display unless verbose)
         if self.delay_between_requests > 0:
-            print(f"   ⏳ Rate limit delay: {self.delay_between_requests}s...")
-            for i in range(int(self.delay_between_requests)):
-                if self.shutdown_requested:
-                    break
-                time.sleep(1)
-                if i < int(self.delay_between_requests) - 1:
-                    print(f"   ⏳ {int(self.delay_between_requests) - i - 1}s remaining...", end='\r', flush=True)
-            print()  # Clear countdown line
+            if self.verbose:
+                print(f"   ⏳ Rate limit delay: {self.delay_between_requests}s...")
+                for i in range(int(self.delay_between_requests)):
+                    if self.shutdown_requested:
+                        break
+                    time.sleep(1)
+                    if i < int(self.delay_between_requests) - 1:
+                        print(f"   ⏳ {int(self.delay_between_requests) - i - 1}s remaining...", end='\r', flush=True)
+                print()  # Clear countdown line
+            else:
+                time.sleep(self.delay_between_requests)
         
-        print("-" * 80)  # Separator between downloads
+        # Only show separator in verbose mode
+        if self.verbose:
+            print("-" * 80)  # Separator between downloads
         return True
     
     def _create_url_record(self, doc: Dict[str, str], current_position: int, last_error: Exception) -> bool:
@@ -1240,8 +1265,12 @@ and URL have been preserved for future reference or manual download.
         
         start_time = time.time()
         
+        # Calculate total batches for progress tracking
+        total_batches = (len(documents) + 49) // 50  # Round up division
+        
         # Download with thread pool and enhanced monitoring
-        print(f"🔄 Processing documents with {self.max_workers} concurrent workers...\n")
+        print(f"🔄 Processing documents with {self.max_workers} concurrent workers...")
+        print(f"📦 Total batches: {total_batches} (50 documents per batch)\n")
         
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             # Submit all tasks
@@ -1282,16 +1311,14 @@ and URL have been preserved for future reference or manual download.
                         with self.lock:
                             active_count = len(self.active_downloads)
                         
-                        print(f"📊 PROGRESS UPDATE [{completed}/{len(documents)}]")
-                        print(f"   ⏱️  Elapsed: {elapsed:.1f}s | Rate: {rate:.2f}/s | ETA: {eta:.0f}s")
-                        print(f"   🔄 Active downloads: {active_count}/{self.max_workers}")
-                        print(f"   ✅ Downloaded: {self.downloaded_count} | ⏭️  Skipped: {self.skipped_count} | ❌ Failed: {self.failed_count}")
+                        # Calculate current batch information
+                        current_batch_start = (completed // 50) * 50
+                        current_batch_end = min(current_batch_start + 50, len(documents))
+                        current_batch_num = (completed // 50) + 1
+                        total_batches = (len(documents) + 49) // 50  # Round up division
                         
-                        # Show completion percentage
-                        progress_pct = (completed / len(documents)) * 100
-                        progress_bar = "█" * int(progress_pct // 5) + "░" * (20 - int(progress_pct // 5))
-                        print(f"   📈 Progress: [{progress_bar}] {progress_pct:.1f}%")
-                        print("-" * 60)
+                        # Simplified progress output - just show which group is being worked on
+                        print(f"📦 Working on documents {current_batch_start + 1}-{current_batch_end} | ✅{self.downloaded_count} ⏭️{self.skipped_count} ❌{self.failed_count} | {(completed/len(documents)*100):.1f}% complete")
                         
                         last_update_time = current_time
                         

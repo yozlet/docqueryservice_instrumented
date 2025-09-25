@@ -54,8 +54,14 @@ class WorldBankScraper:
                 params['qterm'] = query_term
             if country:
                 params['count_exact'] = country
-                
-            print(f"Fetching documents {current_offset + 1}-{current_offset + current_rows}...")
+            
+            # Calculate batch range for better progress indication
+            batch_start = len(all_docs)
+            batch_end = min(batch_start + current_rows, count)
+            batch_num = (batch_start // 50) + 1
+            total_batches = (count + 49) // 50  # Round up division
+            
+            print(f"📥 Working on documents {batch_start + 1}-{batch_end}...")
             
             try:
                 response = self.session.get(self.base_url, params=params, timeout=30)
