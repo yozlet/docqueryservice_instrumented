@@ -73,8 +73,9 @@ class LLMConfig:
                 requires_key="ANTHROPIC_API_KEY",
                 settings=AnthropicSettings(
                     temperature=0,
-                    model_name="claude-3-sonnet-20240229",
-                    anthropic_api_key=self.anthropic_api_key
+                    model_name="claude-3-7-sonnet-20250219",
+                    anthropic_api_key=self.anthropic_api_key,
+                    base_url="https://api.anthropic.com/v1"
                 )
             ),
             LLMModel.CLAUDE_3_OPUS: ModelConfig(
@@ -83,7 +84,8 @@ class LLMConfig:
                 settings=AnthropicSettings(
                     temperature=0,
                     model_name="claude-3-opus-20240229",
-                    anthropic_api_key=self.anthropic_api_key
+                    anthropic_api_key=self.anthropic_api_key,
+                    base_url="https://api.anthropic.com/v1"
                 )
             )
         }

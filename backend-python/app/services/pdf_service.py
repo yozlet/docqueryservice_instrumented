@@ -1,11 +1,15 @@
 import os
+from re import I
 import tempfile
 from typing import Optional
 import aiohttp
 from PyPDF2 import PdfReader
 from opentelemetry import trace
+import logging
 
 tracer = trace.get_tracer(__name__)
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 class PDFService:
     def __init__(self):
@@ -30,6 +34,7 @@ class PDFService:
         with tracer.start_as_current_span("download_and_extract_text") as span:
             span.set_attribute("doc_id", doc_id)
             span.set_attribute("url", url)
+            logger.info(f"[{doc_id}] received request to extract text from {url}")
             
             # Validate URL
             if not url.lower().endswith('.pdf'):
@@ -53,6 +58,7 @@ class PDFService:
                             
                             # Save to temp file
                             with open(pdf_path, 'wb') as f:
+                                logger.debug("save file started")
                                 while True:
                                     chunk = await response.content.read(8192)
                                     if not chunk:
@@ -65,6 +71,7 @@ class PDFService:
                         reader = PdfReader(pdf_path)
                         text = ""
                         tokens = 0
+                        logger.debug("extracting file..")
                         for page in reader.pages:
                             text += page.extract_text() + "\n"
                             # count the words in the text
@@ -72,7 +79,7 @@ class PDFService:
                             tokens += len(words)
                             if tokens > self.max_tokens:
                                 break
-
+                        logger.debug(f"extracted {str(tokens)} tokens from {str(text)} characters")
                         return text.strip()
                     except Exception as e:
                         raise IOError(f"Failed to extract text from PDF: {str(e)}")

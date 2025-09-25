@@ -18,6 +18,7 @@ langchain-anthropic==0.1.1
 openai>=1.10.0,<2.0.0
 
 # OpenTelemetry instrumentation - let pip resolve versions
+opentelemetry-distro
 opentelemetry-sdk
 opentelemetry-semantic-conventions
 opentelemetry-instrumentation-fastapi
