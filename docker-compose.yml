@@ -14,7 +14,7 @@ services:
       # If we want to data to persist, uncomment this. 
       # Leave it commented and database will be reset on each restart.
       # - postgres_data:/var/lib/postgresql/data
-      - ./scripts/sql:/docker-entrypoint-initdb.d
+      - ./postgres/init-sql:/docker-entrypoint-initdb.d
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
