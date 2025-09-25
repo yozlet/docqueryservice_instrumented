@@ -370,7 +370,7 @@ def main():
         return False
     
     # Initialize schema
-    schema_path = os.path.join(os.path.dirname(__file__), 'sql', 'init-schema.sql')
+    schema_path = os.path.join(os.path.dirname(__file__), 'sql', 'init-schema.postgresql.sql')
     if os.path.exists(schema_path):
         logger.info("Initializing database schema...")
         if not db.execute_script(schema_path):

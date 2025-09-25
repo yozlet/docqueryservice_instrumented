@@ -24,6 +24,8 @@ CREATE TABLE documents (
     volnb INTEGER,
     totvolnb INTEGER,
     url VARCHAR(2048),
+    document_location VARCHAR(1024), -- Path to downloaded PDF file on disk
+    document_status VARCHAR(50) DEFAULT 'PENDING', -- Document download status: PENDING, DOWNLOADED, NOT_FOUND, FAILED, URL_ONLY
     
     -- Language and country
     lang VARCHAR(50),
@@ -134,6 +136,7 @@ CREATE INDEX ix_documents_docty ON documents(docty);
 CREATE INDEX ix_documents_majdocty ON documents(majdocty);
 CREATE INDEX ix_documents_created_at ON documents(created_at);
 CREATE INDEX ix_documents_updated_at ON documents(updated_at);
+CREATE INDEX ix_documents_document_status ON documents(document_status);
 
 -- Search performance indexes
 CREATE INDEX ix_search_queries_created_at ON search_queries(created_at);
@@ -145,6 +148,7 @@ CREATE INDEX ix_document_access_access_type ON document_access(access_type);
 CREATE INDEX ix_documents_lang_country ON documents(lang, country);
 CREATE INDEX ix_documents_docdt_lang ON documents(docdt, lang);
 CREATE INDEX ix_documents_majdocty_docdt ON documents(majdocty, docdt);
+CREATE INDEX ix_documents_status_created ON documents(document_status, created_at);
 
 -- Full-text search indexes using trigram similarity
 CREATE INDEX ix_documents_title_trgm ON documents USING gin(title gin_trgm_ops);
@@ -176,11 +180,12 @@ SELECT
     d.docty,
     d.majdocty,
     d.url,
+    d.document_status,
     d.created_at,
     COUNT(da.id) as access_count
 FROM documents d
 LEFT JOIN document_access da ON d.id = da.document_id
-GROUP BY d.id, d.title, d.docdt, d.lang, d.country, d.docty, d.majdocty, d.url, d.created_at;
+GROUP BY d.id, d.title, d.docdt, d.lang, d.country, d.docty, d.majdocty, d.url, d.document_status, d.created_at;
 
 -- View for recent documents
 CREATE VIEW v_recent_documents AS
@@ -191,6 +196,7 @@ SELECT
     lang,
     country,
     majdocty,
+    document_status,
     created_at
 FROM documents
 ORDER BY created_at DESC
@@ -204,49 +210,10 @@ SELECT
     d.docdt,
     d.lang,
     d.country,
+    d.document_status,
     COUNT(da.id) as access_count
 FROM documents d
 INNER JOIN document_access da ON d.id = da.document_id
-GROUP BY d.id, d.title, d.docdt, d.lang, d.country
+GROUP BY d.id, d.title, d.docdt, d.lang, d.country, d.document_status
 ORDER BY COUNT(da.id) DESC
 LIMIT 100;
-
--- Sample data for testing (World Bank regions and languages)
-INSERT INTO countries (name, code, region) VALUES
-('Afghanistan', 'AFG', 'South Asia'),
-('Brazil', 'BRA', 'Latin America & Caribbean'),
-('China', 'CHN', 'East Asia & Pacific'),
-('Germany', 'DEU', 'Europe & Central Asia'),
-('India', 'IND', 'South Asia'),
-('Kenya', 'KEN', 'Sub-Saharan Africa'),
-('Mexico', 'MEX', 'Latin America & Caribbean'),
-('Nigeria', 'NGA', 'Sub-Saharan Africa'),
-('United States', 'USA', 'North America'),
-('Global', 'GLB', 'Global');
-
-INSERT INTO languages (name, iso_code) VALUES
-('English', 'en'),
-('Spanish', 'es'),
-('French', 'fr'),
-('Portuguese', 'pt'),
-('Chinese', 'zh'),
-('Arabic', 'ar'),
-('Russian', 'ru');
-
-INSERT INTO document_types (type_name, major_type, description) VALUES
-('Project Document', 'Project Documents', 'Documents related to World Bank projects'),
-('Country Study', 'Economic & Sector Work', 'Country-specific economic analysis'),
-('Policy Research Report', 'Policy Research', 'Research on development policy'),
-('Working Paper', 'Policy Research', 'Working papers and research notes'),
-('Annual Report', 'Corporate Publications', 'Annual institutional reports'),
-('Strategy Document', 'Strategy & Policy', 'Institutional strategy documents');
-
-INSERT INTO topics (name, description) VALUES
-('Energy', 'Energy sector development and policy'),
-('Education', 'Education systems and human capital'),
-('Health', 'Health systems and public health'),
-('Infrastructure', 'Physical infrastructure development'),
-('Environment', 'Environmental sustainability and climate'),
-('Governance', 'Public sector governance and institutions'),
-('Private Sector', 'Private sector development'),
-('Social Protection', 'Social safety nets and protection systems');

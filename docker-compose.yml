@@ -11,7 +11,9 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      # If we want to data to persist, uncomment this. 
+      # Leave it commented and database will be reset on each restart.
+      # - postgres_data:/var/lib/postgresql/data
       - ./scripts/sql:/docker-entrypoint-initdb.d
     restart: unless-stopped
     healthcheck:
