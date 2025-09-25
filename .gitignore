@@ -606,3 +606,4 @@ scripts/azurite_data/
 scripts/test/test_*.sql
 scripts/test/test_error_analysis/
 scripts/test/test_retry/
+azurite_data/
