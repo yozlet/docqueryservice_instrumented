@@ -94,6 +94,7 @@ backend-python/run/*.pid
 *.env
 !local-dev.env.template
 !deployment/*.env.template
+scripts/pdfs/*
 
 # Temporary files
 *.tmp
