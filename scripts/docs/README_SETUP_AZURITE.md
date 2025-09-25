@@ -33,11 +33,11 @@ Development Environment:
 ├── 🗄️  PostgreSQL Database
 │   ├── docqueryservice database
 │   ├── Complete schema (tables, indexes)
-│   └── 200 sample documents (metadata)
+│   └── 500 sample documents (metadata)
 ├── 🔵 Azurite Blob Storage
 │   ├── Running on http://127.0.0.1:10000
 │   ├── pdfs container
-│   └── 20 sample PDF files (organized by year/type)
+│   └── ~485 sample PDF files (organized by year/type)
 ├── 🐍 Python Environment
 │   ├── Virtual environment (.venv)
 │   ├── All required dependencies
@@ -53,7 +53,7 @@ Development Environment:
 | Option            | Default | Description                             |
 | ----------------- | ------- | --------------------------------------- |
 | `--clean`         | `false` | Clean database and Azurite before setup |
-| `--sample-docs=N` | `200`   | Number of sample documents to generate  |
+| `--sample-docs=N` | `500`   | Number of sample documents to generate  |
 | `--help`          | -       | Show help message and exit              |
 
 ## 🔄 Setup Process
@@ -87,11 +87,11 @@ The script performs these steps automatically:
 - Runs World Bank scraper for sample documents
 - Generates `sample_data.sql` with metadata
 - Loads document metadata into database
-- Creates 200 document records (configurable)
+- Creates 500 document records (configurable)
 
 ### 5. 📥 **PDF Download to Azurite**
 
-- Downloads 20 sample PDFs to Azurite storage
+- Downloads ~485 sample PDFs to Azurite storage
 - Organizes files by country/type/year hierarchy
 - Updates database with blob storage locations
 - Provides download progress tracking
@@ -122,7 +122,7 @@ The script performs these steps automatically:
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
 🚀 Starting Azurite-integrated database setup...
-📊 Sample documents: 50
+📊 Sample documents: 500
 🔵 Azurite data directory: ./azurite_data
 
 Step 1: Python Environment
@@ -155,24 +155,26 @@ Step 3: Database Setup
 Step 4: Sample Data Generation
 📄 Generating sample document data...
 🌐 Fetching sample documents from World Bank API...
-✅ Sample data generated (50 documents)
-📊 Loading sample data into database...
-✅ Sample data loaded into database
+✅ Sample data generated (500 documents)
 
 Step 5: PDF Download to Azurite
 🔵 Downloading PDFs to Azurite blob storage...
-📥 Downloading 20 sample PDFs to Azurite...
+📥 Downloading sample PDFs to Azurite...
 ✅ PDFs downloaded to Azurite blob storage
 📊 Azurite storage summary:
 🔵 Listing blobs in Azurite container: pdfs
-📄 Found 20 blobs
-📊 Total: 20 blobs, 15,234,567 bytes (14.53 MB)
+📄 Found 485 blobs
+📊 Total: 485 blobs, 1,079,896,120 bytes (1029.87 MB)
 
-Step 6: Verification
+Step 6: Load Updated Sample Data
+📊 Loading sample data into database...
+✅ Sample data loaded into database
+
+Step 7: Verification
 🔍 Verifying setup...
-✅ Database: 50 documents loaded
+✅ Database: 497 documents loaded
 ✅ Azurite: Blob storage accessible
-✅ Azurite: 20 PDFs stored
+✅ Azurite: 485 PDFs stored
 ✅ Python: Virtual environment ready
 
 🎉 Setup completed successfully!
@@ -189,7 +191,7 @@ After setup, you can use these commands:
 python3 list_azurite_blobs.py
 
 # Download more PDFs
-python3 pdf_downloader_azurite.py sample_data.sql --max-downloads 50
+python3 pdf_downloader_azurite.py sample_data.sql --container pdfs --update-sql-file
 
 # Clean Azurite storage
 ./clean_azurite.sh --confirm
