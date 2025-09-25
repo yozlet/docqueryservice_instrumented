@@ -15,15 +15,15 @@ This project builds a complete observability solution demo with:
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   React Frontend │    │  .NET Backend   │    │  Java Backend   │
-│   (Non-Azure)    │────│   (Azure)       │────│  (Non-Azure)    │
-│   RUM Tracking   │    │   App Service   │    │   Cloud VM      │
+│  React Frontend │    │  .NET Backend   │    │ Python Backend  │
+│  (Non-Azure)    │────│   (Azure)       │────│  (Non-Azure)    │
+│  RUM Tracking   │    │   App Service   │    │   Cloud VM      │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
          │                        │                        │
          └────────────────────────┼────────────────────────┘
                                   │
               ┌─────────────────────────────────────┐
-              │        Azure SQL Database           │
+              │          PostgreSQL                 │
               │     (Shared Document Store)         │
               └─────────────────────────────────────┘
                                   │
@@ -39,13 +39,15 @@ This project builds a complete observability solution demo with:
 - **Docker** with Docker Compose
 - **Python 3.9+**
 - **mise** tool manager ([installation guide](https://mise.jdx.dev/getting-started.html))
+  - run `curl https://mise.run | sh`
 - **Node.js 20** (managed via mise for security)
 - **Yarn 4.10.2** (managed via mise, with security hardening)
 - **.NET 9.0 SDK** (managed via mise)
 
 ### 1. Database Setup
 
-Start the SQL Server database and load sample documents:
+This demo uses PostgreSQL as its main database.
+Start the PostgreSQL database and load sample documents:
 
 ```bash
 # Clone the repository
@@ -61,8 +63,8 @@ cd scripts
 ```
 
 This will:
-- 🐳 Start Azure SQL Edge in Docker (ARM64/Apple Silicon compatible)
-- 📊 Initialize database schema with full-text search
+- 🐳 Start PostgreSQL in Docker (ARM64/Apple Silicon compatible)
+- 📊 Initialize database schema with trigram-based full-text search
 - 📄 Load 500+ real World Bank documents
 - ✅ Verify setup with connection tests
 
@@ -115,7 +117,7 @@ cd deployment
 **Service URLs:**
 - **Frontend**: http://localhost:5173 (React app with document search)
 - **Backend API**: http://localhost:5001 (REST API + Swagger UI)
-- **Database**: localhost:1433 (Azure SQL Edge container)
+- **Database**: localhost:5432 (PostgreSQL container)
 
 **Manual Control:**
 ```bash
@@ -306,11 +308,11 @@ nodeLinker: node-modules
 ### ✅ **Completed Components**
 
 #### **Database Infrastructure**
-- **Azure SQL Edge** container with ARM64 compatibility
+- **PostgreSQL** container with ARM64 compatibility
 - **Complete schema** with documents, countries, languages, types, authors, topics
-- **Full-text search** capabilities with LIKE fallback
-- **Database utilities** using pymssql for cross-platform reliability
-- **Bulk data loading** with MERGE operations for efficient updates
+- **Full-text search** capabilities with trigram similarity
+- **Database utilities** using psycopg2 for cross-platform reliability
+- **Bulk data loading** with UPSERT operations for efficient updates
 
 #### **Data Pipeline** 
 - **World Bank API scraper** with direct database insertion
@@ -459,10 +461,10 @@ cd tests
 Database connection can be configured via environment variables:
 
 ```bash
-export DB_SERVER=localhost
-export DB_PORT=1433  
-export DB_DATABASE=DocQueryService
-export DB_USERNAME=sa
+export DB_HOST=localhost
+export DB_PORT=5432  
+export DB_NAME=docqueryservice
+export DB_USER=postgres
 export DB_PASSWORD=DevPassword123!
 ```
 
@@ -482,10 +484,11 @@ The database implements a comprehensive document management schema:
 - **`search_queries`** - Query logging for performance analysis
 - **`document_access`** - View/download tracking for usage metrics
 
-### Views & Procedures  
+### Views & Extensions  
 - **`v_documents_summary`** - Document summaries with access counts
-- **`sp_SearchDocuments`** - Full-text search with filtering
-- **`sp_GetSearchFacets`** - Faceted search results
+- **`v_recent_documents`** - Latest documents with metadata
+- **`v_popular_documents`** - Most accessed documents
+- **`pg_trgm`** - Trigram-based full-text search extension
 
 ## 🎯 Observability Objectives
 

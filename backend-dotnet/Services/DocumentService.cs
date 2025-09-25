@@ -2,20 +2,20 @@ using System.Diagnostics;
 using System.Text;
 using Dapper;
 using DocumentQueryService.Api.Models;
-using Microsoft.Data.SqlClient;
+using Npgsql;
 
 namespace DocumentQueryService.Api.Services;
 
 /// <summary>
-/// Service implementation for document operations using SQL Server and Dapper
+/// Service implementation for document operations using PostgreSQL and Dapper
 /// </summary>
 public class DocumentService : IDocumentService
 {
-    private readonly SqlConnection _connection;
+    private readonly NpgsqlConnection _connection;
     private readonly ILogger<DocumentService> _logger;
     private static readonly ActivitySource ActivitySource = new("DocumentQueryService.DocumentService");
 
-    public DocumentService(SqlConnection connection, ILogger<DocumentService> logger)
+    public DocumentService(NpgsqlConnection connection, ILogger<DocumentService> logger)
     {
         _connection = connection;
         _logger = logger;
@@ -46,7 +46,7 @@ public class DocumentService : IDocumentService
                 FROM documents 
                 {whereClause}
                 ORDER BY created_at DESC
-                OFFSET @Offset ROWS FETCH NEXT @Rows ROWS ONLY";
+                OFFSET @Offset LIMIT @Rows";
 
             parameters.Add("Offset", request.Offset);
             parameters.Add("Rows", request.Rows);
@@ -227,13 +227,17 @@ public class DocumentService : IDocumentService
         var conditions = new List<string>();
         var parameters = new DynamicParameters();
 
-        // Full-text search
-        if (!string.IsNullOrEmpty(request.QueryTerm))
-        {
-            // Try full-text search first, fall back to LIKE
-            conditions.Add("(title LIKE @QueryPattern OR abstract LIKE @QueryPattern)");
-            parameters.Add("QueryPattern", $"%{request.QueryTerm}%");
-        }
+            // Full-text search using PostgreSQL trigram similarity
+            if (!string.IsNullOrEmpty(request.QueryTerm))
+            {
+                conditions.Add(@"(
+                    title %% @QueryTerm OR 
+                    abstract %% @QueryTerm OR
+                    similarity(title, @QueryTerm) > 0.3 OR
+                    similarity(abstract, @QueryTerm) > 0.3
+                )");
+                parameters.Add("QueryTerm", request.QueryTerm);
+            }
 
         // Exact filters
         if (!string.IsNullOrEmpty(request.CountryExact))

@@ -1,0 +1,322 @@
+openapi: 3.1.0
+info:
+  title: DocAssistant API
+  description: API for searching and summarizing documents
+  version: 1.0.0
+  contact:
+    name: DocAssistant Team
+  license:
+    name: MIT
+    
+servers:
+  - url: https://api.example.com
+    description: Production server
+  - url: http://localhost:8080
+    description: Local development server
+
+paths:
+  /v1/search:
+    post:
+      summary: Search for documents
+      description: Search for documents using various criteria including text, dates, and metadata
+      operationId: searchDocuments
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DocumentSearchRequest'
+      responses:
+        '200':
+          description: Successful search results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentSearchResponse'
+        '400':
+          description: Bad request - invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/summary:
+    post:
+      summary: Generate summaries for documents
+      description: Generate AI-powered summaries for specified documents
+      operationId: generateSummaries
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DocumentSummaryRequest'
+      responses:
+        '200':
+          description: Successfully generated summaries
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentSummaryResponse'
+        '400':
+          description: Bad request - invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/health:
+    get:
+      summary: Health check endpoint
+      description: Returns the health status of the service
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "healthy"
+
+components:
+  schemas:
+    DocumentSearchRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Search by document ID
+          example: "doc_123"
+        search_text:
+          type: string
+          description: Text to search for in document title or abstract
+          example: "renewable energy"
+        title:
+          type: string
+          description: Search by document title
+          example: "Climate Change Analysis"
+        abstract:
+          type: string
+          description: Search by document abstract
+          example: "This study analyzes climate patterns"
+        doc_type:
+          type: string
+          description: Filter by document type
+          example: "research_paper"
+        major_document_type:
+          type: string
+          description: Filter by major document type
+          example: "Report"
+        language:
+          type: string
+          description: Filter by language code
+          example: "en"
+        country:
+          type: string
+          description: Filter by country
+          example: "USA"
+        start_date:
+          type: string
+          format: date-time
+          description: Filter by start date
+          example: "2023-01-01T00:00:00Z"
+        end_date:
+          type: string
+          format: date-time
+          description: Filter by end date
+          example: "2023-12-31T23:59:59Z"
+        max_results:
+          type: integer
+          minimum: 1
+          description: Maximum number of results to return
+          example: 3
+          default: 3
+
+    DocumentSearchResponse:
+      type: object
+      required:
+        - results
+        - result_count
+        - search_time_ms
+      properties:
+        results:
+          type: array
+          description: List of matching documents
+          items:
+            $ref: '#/components/schemas/Document'
+        result_count:
+          type: integer
+          description: Total number of matching documents
+          example: 42
+        search_time_ms:
+          type: integer
+          description: Time taken to perform the search in milliseconds
+          example: 123
+
+    Document:
+      type: object
+      required:
+        - id
+        - title
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          description: Unique document identifier
+          example: "doc_123"
+        title:
+          type: string
+          description: Document title
+          example: "Analysis of Renewable Energy Trends"
+        abstract:
+          type: string
+          description: Document abstract or summary
+          example: "This paper analyzes global trends in renewable energy adoption..."
+        document_date:
+          type: string
+          format: date-time
+          description: Document publication date
+          example: "2023-03-15T10:30:00Z"
+        document_type:
+          type: string
+          description: Type of document
+          example: "research_paper"
+        major_document_type:
+          type: string
+          description: Major document type category
+          example: "Report"
+        volume_number:
+          type: integer
+          description: Volume number
+          example: 1
+        total_volume_number:
+          type: integer
+          description: Total volume number
+          example: 3
+        url:
+          type: string
+          format: uri
+          description: Document URL
+          example: "https://example.com/documents/doc_123.pdf"
+        language:
+          type: string
+          description: Language code
+          example: "en"
+        country:
+          type: string
+          description: Country associated with the document
+          example: "USA"
+        author:
+          type: string
+          description: Author information
+          example: "John Doe, Jane Smith"
+        publisher:
+          type: string
+          description: Publisher information
+          example: "Academic Press"
+        created_at:
+          type: string
+          format: date-time
+          description: Creation timestamp
+          example: "2023-01-15T08:00:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          description: Last update timestamp
+          example: "2023-01-20T14:30:00Z"
+        content:
+          type: string
+          description: Document content to summarize
+          example: "Full text content of the document..."
+        model:
+          type: string
+          description: LLM model to use for processing
+          example: "gpt-3.5-turbo-16k"
+          enum:
+            - "gpt-3.5-turbo-16k"
+            - "gpt-4-turbo-preview"
+            - "claude-3-sonnet"
+            - "claude-3-opus"
+
+    DocumentSummaryRequest:
+      type: object
+      required:
+        - ids
+      properties:
+        ids:
+          type: array
+          description: List of document IDs to summarize
+          items:
+            type: string
+          example: ["doc_123", "doc_456"]
+        model:
+          type: string
+          description: AI model to use for summarization
+          example: "gpt-4"
+        modelOptions:
+          type: object
+          description: Additional options for the AI model
+          additionalProperties:
+            type: string
+          example:
+            max_length: "500"
+            temperature: "0.7"
+
+    DocumentSummaryResponse:
+      type: object
+      required:
+        - summary_text
+        - summary_time_ms
+      properties:
+        summary_text:
+          type: string
+          description: Generated summary text
+          example: "The documents discuss advancements in renewable energy..."
+        summary_time_ms:
+          type: integer
+          description: Time taken to generate the summary in milliseconds
+          example: 2345
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          description: Error code
+          example: "INVALID_PARAMETER"
+        message:
+          type: string
+          description: Human-readable error message
+          example: "Invalid date format for start_date"
+        details:
+          type: object
+          description: Additional error details
+          additionalProperties: true
+
+tags:
+  - name: search
+    description: Document search operations
+  - name: summary
+    description: Document summarization operations
+
+security: []

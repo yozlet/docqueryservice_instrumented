@@ -1,4 +1,4 @@
-using Microsoft.Data.SqlClient;
+using Npgsql;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using OpenTelemetry.Metrics;
@@ -31,17 +31,17 @@ var connectionString = Environment.GetEnvironmentVariable("DATABASE_CONNECTION_S
 
 static string BuildDefaultConnectionString()
 {
-    var server = Environment.GetEnvironmentVariable("DB_SERVER") ?? "localhost";
-    var port = Environment.GetEnvironmentVariable("DB_PORT") ?? "1433";
-    var database = Environment.GetEnvironmentVariable("DB_DATABASE") ?? "DocQueryService";
-    var username = Environment.GetEnvironmentVariable("DB_USERNAME") ?? "sa";
+    var host = Environment.GetEnvironmentVariable("DB_HOST") ?? "localhost";
+    var port = Environment.GetEnvironmentVariable("DB_PORT") ?? "5432";
+    var database = Environment.GetEnvironmentVariable("DB_DATABASE") ?? "docqueryservice";
+    var username = Environment.GetEnvironmentVariable("DB_USERNAME") ?? "postgres";
     var password = Environment.GetEnvironmentVariable("DB_PASSWORD") ?? "DevPassword123!";
 
-    return $"Server={server},{port};Database={database};User Id={username};Password={password};TrustServerCertificate=true;";
+    return $"Host={host};Port={port};Database={database};Username={username};Password={password}";
 }
 
 Console.WriteLine($"Database server: {connectionString.Split(';')[0]}");
-builder.Services.AddScoped<SqlConnection>(_ => new SqlConnection(connectionString));
+builder.Services.AddScoped<NpgsqlConnection>(_ => new NpgsqlConnection(connectionString));
 
 // Add our services
 builder.Services.AddScoped<IDocumentService, DocumentService>();
@@ -67,11 +67,7 @@ builder.Services.AddOpenTelemetry()
         ]))
     .WithTracing(tracing => tracing
         .AddAspNetCoreInstrumentation()
-        .AddSqlClientInstrumentation(options =>
-        {
-            options.SetDbStatementForText = true;
-            options.RecordException = true;
-        })
+        .AddNpgsql()
         .AddOtlpExporter())
     .WithMetrics(metrics => metrics
         .AddAspNetCoreInstrumentation()
@@ -82,10 +78,10 @@ builder.Services.AddOpenTelemetry()
 builder.Services.AddOpenApi();
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new() { 
-        Title = "Document Query Service API", 
+    c.SwaggerDoc("v1", new() {
+        Title = "Document Query Service API",
         Version = "v1",
-        Description = "A World Bank-style document search and retrieval API"
+        Description = "Multi-version API: World Bank-style endpoints (/api/v3/wds) and Python-compatible endpoints (/v1)"
     });
 });
 

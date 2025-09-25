@@ -1,1 +1,11 @@
-requests>=2.28.0
+# Core dependencies
+requests==2.31.0
+python-dotenv==1.0.1
+sqlalchemy==2.0.27
+pg8000==1.30.3
+
+# Testing dependencies (if needed)
+pytest==8.0.0
+pytest-mock==3.12.0
+pytest-cov==4.1.0
+responses==0.24.1

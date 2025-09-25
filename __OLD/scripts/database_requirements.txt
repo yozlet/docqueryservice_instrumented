@@ -1,0 +1,2 @@
+# Install core requirements first
+-r requirements.txt
