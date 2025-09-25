@@ -1,61 +1,54 @@
-# Database Setup for Document Query Service
+# Document Query Service - Scripts
 
-This directory contains tools to set up and populate a PostgreSQL database for the Document Query Service.
+Generate sample documents from World Bank API for development and testing.
 
 ## 🚀 Quick Start
 
-**⚠️ IMPORTANT: Always run setup scripts with `--clean` flag!**
-
-**PostgreSQL + Local Storage:**
+### Generate Sample Data (Main Script)
 
 ```bash
-cd scripts
-./setup-database.sh --clean
+# Generate 500 documents with PDFs
+python worldbank_scraper.py --count 500
+
+# Generate SQL only (no PDF downloads)
+python worldbank_scraper.py --count 500 --sql-only
 ```
 
-**PostgreSQL + Azurite Blob Storage:**
+**Output:**
+
+- `sample_data.sql` - Database INSERT statements
+- `pdfs/` - Downloaded PDF files (unless `--sql-only`)
+
+## 🛠️ Optional Utilities
+
+### Database Management
 
 ```bash
-cd scripts
-./setup-database-azurite.sh --clean
+# View database table counts
+python utilities/database-info.py
+
+# Initialize database schema
+python utilities/database.py
 ```
 
-**Why `--clean` is required:**
+### Cleanup
 
-- Ensures fresh database and storage state
-- Removes conflicting existing data
-- Guarantees proper PDF download counts
-- Prevents azurite blob storage issues
+```bash
+# Clean data only (recommended)
+python utilities/clean.py --data --confirm
 
-Both scripts will:
+# Clean everything including Docker
+python utilities/clean.py --all --confirm
+```
 
-- Clean and initialize PostgreSQL database
-- Load 500 sample documents from World Bank API (configurable)
-- Download over 480+ PDFs (local storage or Azurite blob storage)
-- Update database with correct document locations and DOWNLOADED status
+## 📋 Requirements
 
-## 🛠️ Connection Details
+```bash
+pip install -r requirements.txt
+```
 
-**Default Configuration:**
+## 📚 Detailed Documentation
 
-- **Server**: localhost:5432
-- **Database**: docqueryservice
-- **Username**: postgres
-- **Password**: DevPassword123!
+For comprehensive guides, troubleshooting, and advanced usage:
 
-**Azurite Blob Storage:**
-
-- **Endpoint**: http://127.0.0.1:10000/devstoreaccount1
-- **Container**: pdfs
-
-## 📊 What You Get
-
-After running the setup script:
-
-- **📄 500 sample documents** from World Bank API (metadata in database)
-- **📥 Over 480+ downloaded PDFs** stored in organized structure
-- **🔵 Azurite blob storage** with hierarchical organization (Language/Type/Year/)
-- **✅ 99%+ success rate** for PDF downloads
-- **🗄️ PostgreSQL database** with proper document locations and statuses
-
-Your database is now ready with documents that have proper storage locations! 🎉
+- **[docs/README.md](docs/README.md)** - Complete documentation with workflows and examples

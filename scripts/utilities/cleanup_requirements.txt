@@ -1,8 +1,0 @@
-# Database cleanup script requirements
-# Install with: pip install -r cleanup_requirements.txt
-
-# PostgreSQL support
-psycopg2-binary>=2.9.0
-
-# SQL Server support
-pyodbc>=4.0.30

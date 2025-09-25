@@ -597,6 +597,11 @@ scripts/test_pdfs/
 **/pdfs/
 *.pdf
 
+# Generated SQL data files
+scripts/sample_data.sql
+scripts/worldbank_data.sql
+scripts/*_data.sql
+
 # Add any project-specific ignores here
 # Temporary files and directories
 scripts/tmp/

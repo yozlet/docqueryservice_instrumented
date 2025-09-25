@@ -284,18 +284,21 @@ class DatabaseCleaner:
 def main():
     """Main function to handle command line arguments and execute cleanup."""
     parser = argparse.ArgumentParser(
-        description="Delete all data from database tables while preserving structure",
+        description="Display database table information and row counts",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Show current table counts
-  python cleanup-database.py --show-counts
+  # Show current table counts (default behavior)
+  python database-info.py
+  
+  # Show current table counts explicitly
+  python database-info.py --show-counts
   
   # Clean PostgreSQL database (requires confirmation)
-  python cleanup-database.py --db-type postgresql --confirm
+  python database-info.py --cleanup --confirm
   
   # Clean SQL Server database  
-  python cleanup-database.py --db-type sqlserver --confirm
+  python database-info.py --cleanup --db-type sqlserver --confirm
 
 Environment Variables:
   PostgreSQL:
@@ -316,9 +319,15 @@ Environment Variables:
     )
     
     parser.add_argument(
+        '--cleanup', 
+        action='store_true',
+        help='Enable cleanup mode (delete all data)'
+    )
+    
+    parser.add_argument(
         '--confirm', 
         action='store_true',
-        help='Confirm that you want to delete ALL data (required for cleanup)'
+        help='Confirm that you want to delete ALL data (required with --cleanup)'
     )
     
     parser.add_argument(
@@ -330,7 +339,7 @@ Environment Variables:
     parser.add_argument(
         '--show-counts', 
         action='store_true',
-        help='Show current row counts for all tables'
+        help='Show current row counts for all tables (default behavior if no other action)'
     )
     
     parser.add_argument(
@@ -347,26 +356,30 @@ Environment Variables:
     # Create cleaner instance
     cleaner = DatabaseCleaner(args.db_type)
     
-    # Show table counts if requested
-    if args.show_counts:
+    # Default behavior: show table counts unless cleanup mode is requested
+    if not args.cleanup:
         if not cleaner.show_table_counts():
             sys.exit(1)
         return
     
-    # Perform cleanup
-    if args.confirm:
-        print("\n⚠️  WARNING: This will DELETE ALL DATA from the database!")
-        print("Tables that will be cleaned:")
-        for table in reversed(cleaner.tables_in_order):
-            print(f"  - {table}")
-        
-        if args.yes:
-            print("\nAuto-confirming cleanup (--yes flag provided)")
-        else:
-            response = input("\nAre you absolutely sure? Type 'YES' to continue: ")
-            if response != 'YES':
-                print("Cleanup cancelled.")
-                sys.exit(0)
+    # Cleanup mode - require confirmation
+    if not args.confirm:
+        print("\n❌ Error: --cleanup requires --confirm flag")
+        print("Use: python database-info.py --cleanup --confirm")
+        sys.exit(1)
+    
+    print("\n⚠️  WARNING: This will DELETE ALL DATA from the database!")
+    print("Tables that will be cleaned:")
+    for table in reversed(cleaner.tables_in_order):
+        print(f"  - {table}")
+    
+    if args.yes:
+        print("\nAuto-confirming cleanup (--yes flag provided)")
+    else:
+        response = input("\nAre you absolutely sure? Type 'YES' to continue: ")
+        if response != 'YES':
+            print("Cleanup cancelled.")
+            sys.exit(0)
     
     success = cleaner.cleanup_database(args.confirm)
     

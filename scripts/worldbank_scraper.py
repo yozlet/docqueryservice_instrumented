@@ -11,8 +11,16 @@ import argparse
 import time
 import sys
 import os
+import subprocess
+import hashlib
+import logging
+import threading
+import signal
 from datetime import datetime
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Tuple
+from pathlib import Path
+from urllib.parse import urlparse, unquote
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import urllib.parse
 import re
 
@@ -25,6 +33,242 @@ try:
 except ImportError:
     DATABASE_AVAILABLE = False
     print("Database utilities not available. Install psycopg2-binary to use database features.")
+
+class PDFDownloader:
+    """Handles PDF downloading with local storage."""
+    
+    def __init__(self, output_dir: str = "pdfs", max_workers: int = 3, timeout: int = 30, delay: float = 1.0):
+        self.output_dir = Path(output_dir)
+        self.max_workers = max_workers
+        self.timeout = timeout
+        self.delay = delay
+        self.session = requests.Session()
+        self.session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        })
+        self.stats = {
+            'processed': 0,
+            'downloaded': 0,
+            'skipped': 0,
+            'failed': 0,
+            'total_size': 0
+        }
+        self.interrupt_requested = False
+        signal.signal(signal.SIGINT, self._signal_handler)
+    
+    def _signal_handler(self, signum, frame):
+        """Handle interrupt signal."""
+        print("\n🛑 Interrupt received. Finishing current downloads...")
+        self.interrupt_requested = True
+    
+    def _generate_filename(self, url: str, doc_id: str) -> str:
+        """Generate a consistent filename from URL and document ID."""
+        try:
+            parsed = urlparse(url)
+            original_filename = os.path.basename(parsed.path)
+            if original_filename and original_filename.endswith('.pdf'):
+                # Use original filename if it's a PDF
+                base_name = os.path.splitext(original_filename)[0]
+                return f"{doc_id}-{hashlib.md5(url.encode()).hexdigest()[:8]}.pdf"
+            else:
+                # Generate filename from document ID and URL hash
+                return f"{doc_id}-{hashlib.md5(url.encode()).hexdigest()[:8]}.pdf"
+        except Exception:
+            return f"{doc_id}-{hashlib.md5(url.encode()).hexdigest()[:8]}.pdf"
+    
+    def _download_single_pdf(self, doc_id: str, url: str, filename: str) -> Tuple[bool, str, int]:
+        """Download a single PDF file."""
+        try:
+            if self.interrupt_requested:
+                return False, "Interrupted", 0
+            
+            file_path = self.output_dir / filename
+            
+            # Check if file already exists
+            if file_path.exists() and file_path.stat().st_size > 0:
+                size = file_path.stat().st_size
+                return True, f"Skipped (exists): {filename} ({size:,} bytes)", size
+            
+            # Create directory if needed
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            # Download the file
+            response = self.session.get(url, timeout=self.timeout, stream=True)
+            response.raise_for_status()
+            
+            # Check content type
+            content_type = response.headers.get('content-type', '').lower()
+            if 'pdf' not in content_type and not url.lower().endswith('.pdf'):
+                return False, f"Not a PDF: {content_type}", 0
+            
+            # Save the file
+            total_size = 0
+            with open(file_path, 'wb') as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    if chunk:
+                        f.write(chunk)
+                        total_size += len(chunk)
+            
+            # Verify it's actually a PDF
+            if total_size < 1024:  # Too small to be a valid PDF
+                file_path.unlink(missing_ok=True)
+                return False, "File too small", 0
+            
+            # Check PDF header
+            with open(file_path, 'rb') as f:
+                header = f.read(4)
+                if header != b'%PDF':
+                    file_path.unlink(missing_ok=True)
+                    return False, "Invalid PDF header", 0
+            
+            time.sleep(self.delay)  # Rate limiting
+            return True, f"Downloaded: {filename} ({total_size:,} bytes)", total_size
+            
+        except requests.exceptions.RequestException as e:
+            return False, f"Download failed: {str(e)}", 0
+        except Exception as e:
+            return False, f"Error: {str(e)}", 0
+    
+    def download_pdfs(self, documents: List[Dict[str, Any]], quiet: bool = False) -> Dict[str, Any]:
+        """Download PDFs for a list of documents."""
+        if not quiet:
+            print(f"📥 Downloading {len(documents)} PDFs...")
+        
+        results = []
+        
+        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+            # Submit download tasks
+            future_to_doc = {}
+            for doc in documents:
+                if self.interrupt_requested:
+                    break
+                
+                doc_id = str(doc.get('id', ''))
+                # Prefer pdfurl over url for PDF downloads
+                url = doc.get('pdfurl', '') or doc.get('url', '')
+                
+                if not url:
+                    continue
+                
+                filename = self._generate_filename(url, doc_id)
+                future = executor.submit(self._download_single_pdf, doc_id, url, filename)
+                future_to_doc[future] = {'doc': doc, 'filename': filename}
+            
+            # Process completed downloads
+            for future in as_completed(future_to_doc):
+                if self.interrupt_requested:
+                    break
+                
+                doc_info = future_to_doc[future]
+                doc = doc_info['doc']
+                filename = doc_info['filename']
+                
+                try:
+                    success, message, size = future.result()
+                    
+                    self.stats['processed'] += 1
+                    
+                    if success:
+                        if "Skipped" in message:
+                            self.stats['skipped'] += 1
+                        else:
+                            self.stats['downloaded'] += 1
+                        self.stats['total_size'] += size
+                        
+                        # Update document with local file path
+                        doc['status'] = 'DOWNLOADED'
+                        doc['location'] = filename
+                        
+                        if not quiet:
+                            print(f"   ✓ {message}")
+                    else:
+                        self.stats['failed'] += 1
+                        doc['status'] = 'FAILED'
+                        if not quiet:
+                            print(f"   ❌ {doc.get('id', 'Unknown')}: {message}")
+                    
+                    results.append(doc)
+                    
+                except Exception as e:
+                    self.stats['failed'] += 1
+                    if not quiet:
+                        print(f"   ❌ {doc.get('id', 'Unknown')}: Exception: {str(e)}")
+        
+        return {
+            'documents': results,
+            'stats': self.stats.copy()
+        }
+    
+    def print_summary(self):
+        """Print download summary."""
+        print(f"\n🎉 ============================================================================ 🎉")
+        print(f"📋 DOWNLOAD COMPLETE - Session Summary")
+        print(f"================================================================================")
+        print(f"📊 Statistics:")
+        print(f"   📥 Total documents processed: {self.stats['processed']}")
+        print(f"   ✅ Successfully downloaded: {self.stats['downloaded']}")
+        print(f"   ⏭️  Skipped (already existed): {self.stats['skipped']}")
+        print(f"   ❌ Failed downloads: {self.stats['failed']}")
+        
+        success_rate = 0
+        if self.stats['processed'] > 0:
+            success_rate = ((self.stats['downloaded'] + self.stats['skipped']) / self.stats['processed']) * 100
+        print(f"   📈 Success rate: {success_rate:.1f}%")
+        
+        print(f"\n⏱️  Performance:")
+        print(f"   📦 Data transferred: ~{self.stats['total_size'] / (1024*1024):.1f} MB")
+        
+        print(f"\n📁 Output:")
+        print(f"   🗂️  Main directory: {self.output_dir.absolute()}")
+        print(f"================================================================================")
+    
+    def update_sql_file(self, sql_file: str, documents: List[Dict[str, Any]], quiet: bool = False):
+        """Update SQL file with downloaded document locations and statuses."""
+        if not quiet:
+            print(f"📝 Updating SQL file: {sql_file}")
+        
+        try:
+            # Read the original SQL file
+            with open(sql_file, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            updated_count = 0
+            
+            # Update each document's status and location in the SQL
+            for doc in documents:
+                doc_id = str(doc.get('id', ''))
+                status = doc.get('status', 'PENDING')
+                location = doc.get('location', '')
+                
+                if status == 'DOWNLOADED' and location:
+                    # Find and update the INSERT statement for this document
+                    pattern = rf"INSERT INTO documents.*?VALUES\s*\(\s*{re.escape(doc_id)}.*?\);"
+                    matches = re.finditer(pattern, content, re.IGNORECASE | re.DOTALL)
+                    
+                    for match in matches:
+                        old_statement = match.group(0)
+                        # Replace status and location in the VALUES clause
+                        new_statement = re.sub(
+                            r"'PENDING'", f"'{status}'", old_statement, count=1
+                        )
+                        new_statement = re.sub(
+                            r"NULL(\s*\);\s*$)", f"'{location}'\\1", new_statement
+                        )
+                        
+                        if new_statement != old_statement:
+                            content = content.replace(old_statement, new_statement)
+                            updated_count += 1
+            
+            # Write the updated SQL file
+            with open(sql_file, 'w', encoding='utf-8') as f:
+                f.write(content)
+            
+            if not quiet:
+                print(f"   ✅ Updated {updated_count} document statuses in SQL file")
+                
+        except Exception as e:
+            if not quiet:
+                print(f"   ❌ Failed to update SQL file: {e}")
 
 class WorldBankScraper:
     def __init__(self):
@@ -375,8 +619,8 @@ def main():
     parser = argparse.ArgumentParser(description='Scrape World Bank Documents API')
     parser.add_argument('--count', type=int, default=100, 
                        help='Number of documents to fetch (default: 100)')
-    parser.add_argument('--output', type=str, default='worldbank_data.sql',
-                       help='Output SQL file (default: worldbank_data.sql)')
+    parser.add_argument('--output', type=str, default='sample_data.sql',
+                       help='Output SQL file (default: sample_data.sql)')
     parser.add_argument('--query', type=str, 
                        help='Search query term (optional)')
     parser.add_argument('--country', type=str,
@@ -391,6 +635,8 @@ def main():
                        help='Database port (default: 5432)')
     parser.add_argument('--db-name', type=str, default='docqueryservice',
                        help='Database name (default: docqueryservice)')
+    parser.add_argument('--sql-only', action='store_true',
+                       help='Generate SQL file only (no PDF downloads). Default is to download PDFs to local storage.')
     
     args = parser.parse_args()
     
@@ -443,7 +689,40 @@ def main():
                 # Generate SQL file
                 scraper.generate_sql_inserts(docs, args.output)
                 print(f"\nSuccess! Generated {args.output} with {len(docs)} documents.")
-                print(f"Run this SQL file against your database to insert the data.")
+                
+                # Default behavior: Download PDFs to local storage unless --sql-only is specified
+                if args.sql_only:
+                    print(f"Run this SQL file against your database to insert the data.")
+                else:
+                    print("Downloading PDFs to local storage...")
+                    try:
+                        # Initialize PDF downloader
+                        downloader = PDFDownloader(
+                            output_dir="pdfs",
+                            max_workers=3,
+                            timeout=30,
+                            delay=1.0
+                        )
+                        
+                        # Download PDFs
+                        result = downloader.download_pdfs(docs, quiet=True)
+                        updated_docs = result['documents']
+                        stats = result['stats']
+                        
+                        # Update SQL file with download results
+                        downloader.update_sql_file(args.output, updated_docs, quiet=True)
+                        
+                        # Print summary
+                        if stats['processed'] > 0:
+                            success_rate = ((stats['downloaded'] + stats['skipped']) / stats['processed']) * 100
+                            print(f"PDF download completed! Downloaded: {stats['downloaded']}, Skipped: {stats['skipped']}, Failed: {stats['failed']} (Success rate: {success_rate:.1f}%)")
+                        else:
+                            print("No PDFs to download.")
+                            
+                    except Exception as e:
+                        print(f"Failed to download PDFs: {e}")
+                        print("SQL file generated successfully, but PDF download failed.")
+                
                 success = True
             
             if not success:

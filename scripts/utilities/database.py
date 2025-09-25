@@ -161,6 +161,23 @@ class DatabaseManager:
             logger.error(f"Failed to execute script {script_path}: {e}")
             return False
     
+    def create_schema(self) -> bool:
+        """Create database schema from PostgreSQL schema file"""
+        try:
+            # Path to the PostgreSQL schema file
+            schema_file_path = os.path.join(os.path.dirname(__file__), '..', 'sql', 'init-schema.postgresql.sql')
+            
+            if not os.path.exists(schema_file_path):
+                logger.error(f"PostgreSQL schema file not found: {schema_file_path}")
+                return False
+            
+            logger.info("Creating database schema from PostgreSQL schema file...")
+            return self.execute_script(schema_file_path)
+                
+        except Exception as e:
+            logger.error(f"Failed to create schema: {e}")
+            return False
+    
     def insert_document(self, doc_data: Dict[str, Any]) -> bool:
         """Insert a single document into the database"""
         try:
@@ -375,15 +392,11 @@ def main():
         logger.error("Failed to connect to database")
         return False
     
-    # Initialize schema
-    schema_path = os.path.join(os.path.dirname(__file__), 'sql', 'init-schema.sql')
-    if os.path.exists(schema_path):
-        logger.info("Initializing database schema...")
-        if not db.execute_script(schema_path):
-            logger.error("Failed to initialize schema")
-            return False
-    else:
-        logger.warning(f"Schema file not found: {schema_path}")
+    # Initialize PostgreSQL schema
+    logger.info("Initializing PostgreSQL database schema...")
+    if not db.create_schema():
+        logger.error("Failed to initialize PostgreSQL schema")
+        return False
     
     # Test basic operations
     doc_count = db.get_document_count()
