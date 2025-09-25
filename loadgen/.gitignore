@@ -1,0 +1,17 @@
+# Environment files
+.env
+
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Playwright
+test-results/
+playwright-report/
+
+# Load test results
+load_test_results_*.json
