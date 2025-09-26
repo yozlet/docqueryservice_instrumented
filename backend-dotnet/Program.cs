@@ -15,11 +15,36 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// Add HttpClient
-builder.Services.AddHttpClient();
+// Add database connection - fully configurable via environment variables
+var connectionString = Environment.GetEnvironmentVariable("DATABASE_CONNECTION_STRING")
+    ?? builder.Configuration.GetConnectionString("DefaultConnection") 
+    ?? BuildDefaultConnectionString();
+
+static string BuildDefaultConnectionString()
+{
+    var host = Environment.GetEnvironmentVariable("DB_HOST") ?? "postgres";
+    var port = Environment.GetEnvironmentVariable("DB_PORT") ?? "5432";
+    var database = Environment.GetEnvironmentVariable("DB_DATABASE") ?? "docqueryservice";
+    var username = Environment.GetEnvironmentVariable("DB_USERNAME") ?? "postgres";
+    var password = Environment.GetEnvironmentVariable("DB_PASSWORD") ?? "DevPassword123!";
+
+    return $"Host={host};Port={port};Database={database};Username={username};Password={password}";
+}
+
+Console.WriteLine($"Database server: {connectionString.Split(';')[0]}");
+builder.Services.AddScoped<NpgsqlConnection>(_ => new NpgsqlConnection(connectionString));
+
+// Add HttpClient with automatic redirect handling
+builder.Services.AddHttpClient("DocumentService")
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+    {
+        AllowAutoRedirect = true,
+        MaxAutomaticRedirections = 10
+    });
 
 // Add our services
 builder.Services.AddScoped<IDocumentService, DocumentService>();
+builder.Services.AddScoped<ILLMConfig, LLMConfig>();
 
 // Configure CORS
 var origins = new[]
