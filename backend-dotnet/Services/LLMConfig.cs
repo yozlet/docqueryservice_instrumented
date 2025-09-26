@@ -2,6 +2,7 @@ using System;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
+using System.Diagnostics;
 using System.Threading.Tasks;
 using Azure.AI.OpenAI;
 using Microsoft.Extensions.Logging;
@@ -15,6 +16,7 @@ public interface ILLMConfig
 
 public class LLMConfig : ILLMConfig
 {
+    private static readonly ActivitySource ActivitySource = new("DocumentQueryService.LLMConfig");
     private readonly ILogger<LLMConfig> _logger;
     private readonly HttpClient _httpClient;
     private readonly OpenAIClient? _openAIClient;
@@ -43,6 +45,10 @@ public class LLMConfig : ILLMConfig
 
     public async Task<string> GenerateCompletionAsync(string prompt, string? model = null)
     {
+        using var activity = ActivitySource.StartActivity("LLMService.GenerateCompletion");
+        activity?.SetTag("model", model);
+        activity?.SetTag("prompt_length", prompt.Length);
+
         model ??= Models.LLMModel.GPT35Turbo16k; // Default model
 
         return model switch
@@ -55,6 +61,11 @@ public class LLMConfig : ILLMConfig
 
     private async Task<string> GenerateOpenAICompletionAsync(string prompt, string model)
     {
+        using var activity = ActivitySource.StartActivity("LLMService.GenerateOpenAICompletionAsync");
+        activity?.SetTag("gen_ai.system", "openai");
+        activity?.SetTag("model", model);
+        activity?.SetTag("prompt", prompt);
+
         if (_openAIClient == null)
         {
             throw new InvalidOperationException("OpenAI API key not configured");
@@ -70,6 +81,7 @@ public class LLMConfig : ILLMConfig
             };
 
             var chatCompletions = await _openAIClient.GetChatCompletionsAsync(options);
+            activity?.SetTag("response", chatCompletions.Value.Choices[0].Message.Content);
             return chatCompletions.Value.Choices[0].Message.Content;
         }
         catch (Exception ex)
@@ -81,6 +93,11 @@ public class LLMConfig : ILLMConfig
 
     private async Task<string> GenerateAnthropicCompletionAsync(string prompt, string model)
     {
+        using var activity = ActivitySource.StartActivity("LLMService.GenerateAnthropicCompletionAsync");
+        activity?.SetTag("gen_ai.system", "anthropic");
+        activity?.SetTag("model", model);
+        activity?.SetTag("prompt", prompt);
+
         if (string.IsNullOrEmpty(_anthropicApiKey))
         {
             throw new InvalidOperationException("Anthropic API key not configured");
@@ -119,6 +136,7 @@ public class LLMConfig : ILLMConfig
 
             var responseContent = await response.Content.ReadAsStringAsync();
             using var doc = JsonDocument.Parse(responseContent);
+            activity?.SetTag("response", doc.RootElement.GetProperty("content").GetProperty("text").GetString());
             return doc.RootElement.GetProperty("content").GetProperty("text").GetString() ?? string.Empty;
         }
         catch (Exception ex)

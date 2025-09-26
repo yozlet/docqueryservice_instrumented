@@ -3,6 +3,7 @@ using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using OpenTelemetry.Metrics;
 using DocumentQueryService.Api.Services;
+using OpenTelemetry.Resources.Azure
 
 var builder = WebApplication.CreateBuilder(args);
 

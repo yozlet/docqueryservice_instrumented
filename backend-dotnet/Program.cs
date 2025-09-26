@@ -7,6 +7,8 @@ using Npgsql;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
+using OpenTelemetry.Instrumentation.Http;
+using OpenTelemetry.Resources.Azure;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -68,10 +70,14 @@ builder.Services.AddCors(options =>
 // Add OpenTelemetry
 builder.Services.AddOpenTelemetry()
     .ConfigureResource(resource => resource
-        .AddService("DocumentQueryService.Api", "1.0.0"))
+        .AddService("DocumentQueryService.Api", "1.0.0")
+        .AddAzureAppServiceDetector())
     .WithTracing(tracing => tracing
         .AddAspNetCoreInstrumentation()
         .AddNpgsql()
+        .AddHttpClientInstrumentation()
+        .AddSource("DocumentQueryService.DocumentService")
+        .AddSource("DocumentQueryService.LLMConfig")
         .AddOtlpExporter())
     .WithMetrics(metrics => metrics
         .AddAspNetCoreInstrumentation()
