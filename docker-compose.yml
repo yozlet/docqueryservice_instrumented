@@ -6,7 +6,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     environment:
-      - REACT_APP_API_URL=http://localhost:5002/v1
+      - REACT_APP_API_URL=http://localhost:5003/v1
       - REACT_APP_BROWSER_OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
     depends_on:
       - otel-collector
@@ -30,6 +30,25 @@ services:
       - otel-collector
     ports:
       - "5002:5002"
+
+  # dotnet Backend
+  backend-dotnet:
+    container_name: backend-dotnet
+    build:
+      context: ./backend-dotnet
+      dockerfile: Dockerfile
+    environment:
+      - DATABASE_URL=postgresql://postgres:DevPassword123!@postgres:5432/docqueryservice
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4317}
+      - OTEL_SERVICE_NAME=docquery-backend-dotnet
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-default_openai_key}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-default_anthropic_key}
+      - ASPNETCORE_ENVIRONMENT=Development
+    depends_on:
+      - postgres
+      - otel-collector
+    ports:
+      - "5003:8080"
 
   # Postgres Database
   postgres:
