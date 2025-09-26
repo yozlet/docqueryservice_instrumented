@@ -29,8 +29,6 @@ app = FastAPI(
 
 # Configure CORS
 origins = [
-    "http://localhost:3000",  # React development server
-    "http://localhost:8080",  # Production build served by nginx
     os.getenv("FRONTEND_URL", ""),  # Production URL from environment variable
 ]
 

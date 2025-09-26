@@ -73,6 +73,13 @@ fi
 export DATABASE_URL=${DATABASE_URL:-"postgresql://postgres:DevPassword123!@localhost:5432/docqueryservice"}
 export LISTEN_HOST=${LISTEN_HOST:-"0.0.0.0"}
 export LISTEN_PORT=${LISTEN_PORT:-"5002"}
+export LISTEN_PORT_HTTPS=${LISTEN_PORT_HTTPS:-"443"}
+
+# SSL configuration
+export SSL_KEYFILE=${SSL_KEYFILE:-""}
+export SSL_CERTFILE=${SSL_CERTFILE:-""}
+export SSL_VERSION=${SSL_VERSION:-"TLSv1_2"}
+export SSL_CIPHERS=${SSL_CIPHERS:-"TLSv1.2+ECDSA+AESGCM:TLSv1.2+ECDSA+CHACHA20:TLSv1.2+ECDSA+AES"}
 
 # Create PID file directory if it doesn't exist
 mkdir -p ./run
@@ -84,19 +91,56 @@ if [ "$ENV" = "production" ]; then
     # Create a temporary env file for workers    
     env | grep -v '^_' > "$ENV_FILE"
     # Production mode: no reload
+    # Start HTTP server
     uvicorn app.main:app \
         --host $LISTEN_HOST \
         --port $LISTEN_PORT \
         --log-level info \
-        --env-file "$ENV_FILE"
+        --env-file "$ENV_FILE" &
+    
+    # Start HTTPS server if SSL certificates are provided
+    if [ -n "$SSL_KEYFILE" ] && [ -n "$SSL_CERTFILE" ]; then
+        echo "Starting HTTPS server..."
+        uvicorn app.main:app \
+            --host $LISTEN_HOST \
+            --port $LISTEN_PORT_HTTPS \
+            --ssl-keyfile "$SSL_KEYFILE" \
+            --ssl-certfile "$SSL_CERTFILE" \
+            --ssl-version "$SSL_VERSION" \
+            --ssl-ciphers "$SSL_CIPHERS" \
+            --log-level info \
+            --env-file "$ENV_FILE"
+    else
+        # Wait for the HTTP server
+        wait
+    fi
 else
     # Development mode: with reload
+    # Start HTTP server
     uvicorn app.main:app \
         --host $LISTEN_HOST \
         --port $LISTEN_PORT \
         --reload \
         --reload-dir app \
-        --log-level info
+        --log-level info &
+        
+    # Start HTTPS server if SSL certificates are provided
+    if [ -n "$SSL_KEYFILE" ] && [ -n "$SSL_CERTFILE" ]; then
+        echo "Starting HTTPS server..."
+        uvicorn app.main:app \
+            --host $LISTEN_HOST \
+            --port $LISTEN_PORT_HTTPS \
+            --ssl-keyfile "$SSL_KEYFILE" \
+            --ssl-certfile "$SSL_CERTFILE" \
+            --ssl-version "$SSL_VERSION" \
+            --ssl-ciphers "$SSL_CIPHERS" \
+            --reload \
+            --reload-dir app \
+            --log-level info
+    else
+        # Wait for the HTTP server
+        wait
+    fi
 fi
 
 # Clean up temporary env file
