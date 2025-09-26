@@ -1,24 +1,25 @@
-# Use the official .NET 9.0 runtime as a parent image
-FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS base
-WORKDIR /app
-EXPOSE 8080
-EXPOSE 8081
-
-# Use the .NET SDK for building
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
-ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
-COPY ["DocumentQueryService.Api.csproj", "DocumentQueryService.Api/"]
-RUN dotnet restore "DocumentQueryService.Api/DocumentQueryService.Api.csproj"
-WORKDIR "/src/DocumentQueryService.Api"
+
+# Copy csproj and restore dependencies
+COPY *.csproj .
+RUN dotnet restore
+
+# Copy everything else and build
 COPY . .
-RUN dotnet build "DocumentQueryService.Api.csproj" -c $BUILD_CONFIGURATION -o /app/build
+RUN dotnet publish -c Release -o /app
 
-FROM build AS publish
-ARG BUILD_CONFIGURATION=Release
-RUN dotnet publish "DocumentQueryService.Api.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
-
-FROM base AS final
+# Build runtime image
+FROM mcr.microsoft.com/dotnet/aspnet:9.0
 WORKDIR /app
-COPY --from=publish /app/publish .
+COPY --from=build /app .
+
+# Expose port
+EXPOSE 8080
+
+# Set environment variables
+ENV ASPNETCORE_URLS=http://+:8080
+ENV ASPNETCORE_ENVIRONMENT=Production
+
+# Start the application
 ENTRYPOINT ["dotnet", "DocumentQueryService.Api.dll"]
