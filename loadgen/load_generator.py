@@ -34,6 +34,65 @@ init(autoreset=True)
 
 fake = Faker()
 
+# Sample document IDs for summary requests (placeholder IDs - edit with real ones)
+DOCUMENT_IDS = [
+    "40047282",
+    "40047354",
+    "40047408",
+    "40047562",
+    "40047588",
+    "40047592",
+    "40047625",
+    "40047626",
+    "40047179",
+    "40047438",
+    "40047264",
+    "40047297",
+    "40047326",
+    "40047401",
+    "40047478",
+    "40047523",
+    "40045915",
+    "40044006",
+    "40040166",
+    "40041009",
+    "40047560",
+    "40047571",
+    "40047583",
+    "40047602",
+    "40047615",
+    "40047616",
+    "40047207",
+    "40047381",
+    "40047439",
+    "40047463",
+    "40047514",
+    "40047522",
+    "40047526",
+    "40047595",
+    "40047181",
+    "40047201",
+    "40047203",
+    "40047305",
+    "40047325",
+    "40047418",
+    "40047433",
+    "40047596",
+    "40047606",
+    "40047620",
+    "40047624",
+    "40047202",
+    "40047533",
+    "40047540",
+    "40047609",
+    "40047180",
+    "40047348",
+    "40047380",
+    "40047410",
+    "40047471",
+    "40047557"
+]
+
 class ContinuousLoadGenerator:
     def __init__(self, hostname: str, requests_per_minute: int, simultaneous_sessions: int, otlp_endpoint: str = None):
         self.hostname = hostname
@@ -163,6 +222,7 @@ class ContinuousLoadGenerator:
         with self.tracer.start_as_current_span("search_request") as span:
             span.set_attribute("session.id", session_id)
             span.set_attribute("target.hostname", self.hostname)
+            span.set_attribute("operation.type", "search")
 
             context = None
             page = None
@@ -197,7 +257,72 @@ class ContinuousLoadGenerator:
                 await page.wait_for_load_state('networkidle', timeout=15000)
 
                 # Optional: brief interaction simulation
-                await asyncio.sleep(random.uniform(0.5, 2.0))
+                await asyncio.sleep(random.uniform(6.0, 9.0))
+
+                result['success'] = True
+                span.set_attribute("request.success", True)
+
+            except Exception as e:
+                result['error'] = str(e)
+                span.set_attribute("request.success", False)
+                span.set_attribute("error.message", str(e))
+                span.record_exception(e)
+
+            finally:
+                if page:
+                    await page.close()
+                if context:
+                    await context.close()
+
+                result['response_time'] = time.time() - start_time
+                span.set_attribute("response.time", result['response_time'])
+
+        return result
+
+    async def perform_summary_request(self, session_id: int) -> Dict:
+        """Execute a single document summary request"""
+        start_time = time.time()
+        result = {'success': False, 'error': None, 'response_time': 0, 'session_id': session_id}
+
+        with self.tracer.start_as_current_span("summary_request") as span:
+            span.set_attribute("session.id", session_id)
+            span.set_attribute("target.hostname", self.hostname)
+            span.set_attribute("operation.type", "summary")
+
+            context = None
+            page = None
+
+            try:
+                # Create new browser context and page for each request
+                context = await self.create_context()
+                page = await context.new_page()
+
+                # Navigate to the summary page
+                summary_url = f"http://{self.hostname}/summary"
+                span.set_attribute("http.url", summary_url)
+
+                await page.goto(summary_url, wait_until='networkidle', timeout=15000)
+
+                # Wait for the summary form to load
+                await page.wait_for_selector('input[type="text"]', timeout=10000)
+
+                # Generate random document ID
+                document_id = random.choice(DOCUMENT_IDS)
+                span.set_attribute("document.id", document_id)
+
+                # Find the document ID input field and fill it
+                doc_id_input = page.locator('input[type="text"]').first
+                await doc_id_input.fill(document_id)
+
+                # Click the submit/summary button
+                summary_button = page.locator('button:has-text("Summary"), button:has-text("Get Summary"), button[type="submit"]').first
+                await summary_button.click()
+
+                # Wait for results with timeout
+                await page.wait_for_load_state('networkidle', timeout=15000)
+
+                # Optional: brief interaction simulation
+                await asyncio.sleep(random.uniform(6.0, 9.0))
 
                 result['success'] = True
                 span.set_attribute("request.success", True)
@@ -248,44 +373,64 @@ class ContinuousLoadGenerator:
         """Worker that runs continuously for a single session"""
         self.active_sessions_gauge.add(1, {"session_id": str(session_id)})
 
-        print(f"{Fore.CYAN}🚀 Session {session_id} started")
+        # Stagger session startup to spread load evenly
+        startup_delay = (session_id * 60.0) / self.requests_per_minute
+        if startup_delay > 0:
+            await asyncio.sleep(startup_delay)
 
-        # Calculate delay between requests for this session
-        delay_between_requests = (60.0 * self.simultaneous_sessions) / self.requests_per_minute
+        print(f"{Fore.CYAN}🚀 Session {session_id} started (after {startup_delay:.1f}s delay)")
+
+        # Calculate base delay between requests for this session
+        base_delay = (60.0 * self.simultaneous_sessions) / self.requests_per_minute
+
+        # Add phase offset to prevent synchronization between sessions
+        session_phase_offset = (session_id / self.simultaneous_sessions) * base_delay
 
         try:
             while self.running:
                 request_start = time.time()
 
-                # Perform search request
-                result = await self.perform_search_request(session_id)
+                # Randomly choose between search and summary operations (50/50 split)
+                operation_type = random.choice(["search", "summary"])
+
+                if operation_type == "search":
+                    result = await self.perform_search_request(session_id)
+                else:
+                    result = await self.perform_summary_request(session_id)
 
                 # Update statistics and metrics
                 self.stats['total_requests'] += 1
-                self.request_counter.add(1, {"session_id": str(session_id)})
+                self.request_counter.add(1, {"session_id": str(session_id), "operation_type": operation_type})
 
                 if result['success']:
                     self.stats['successful_requests'] += 1
-                    self.success_counter.add(1, {"session_id": str(session_id)})
+                    self.success_counter.add(1, {"session_id": str(session_id), "operation_type": operation_type})
                     status_icon = f"{Fore.GREEN}✓"
                 else:
                     self.stats['failed_requests'] += 1
-                    self.error_counter.add(1, {"session_id": str(session_id), "error": str(result['error'])[:50]})
+                    self.error_counter.add(1, {"session_id": str(session_id), "operation_type": operation_type, "error": str(result['error'])[:50]})
                     status_icon = f"{Fore.RED}✗"
 
-                self.response_time_histogram.record(result['response_time'], {"session_id": str(session_id)})
+                self.response_time_histogram.record(result['response_time'], {"session_id": str(session_id), "operation_type": operation_type})
 
-                # Print activity
+                # Print activity with operation type
                 timestamp = datetime.now().strftime("%H:%M:%S")
-                print(f"{status_icon} {timestamp} Session-{session_id:02d}: "
+                op_emoji = "🔍" if operation_type == "search" else "📄"
+                print(f"{status_icon} {timestamp} Session-{session_id:02d} {op_emoji}{operation_type.title()}: "
                       f"Response: {result['response_time']:.2f}s | "
                       f"Total: {self.stats['total_requests']} | "
                       f"Success: {self.stats['successful_requests']}/{self.stats['total_requests']} "
                       f"({(self.stats['successful_requests']/max(self.stats['total_requests'],1)*100):.1f}%)")
 
-                # Wait until it's time for the next request
+                # Calculate wait time with jitter and phase offset
                 elapsed = time.time() - request_start
-                sleep_time = max(0, delay_between_requests - elapsed)
+
+                # Add random jitter (±20% of base delay) to prevent perfect synchronization
+                jitter = random.uniform(-0.2, 0.2) * base_delay
+
+                # Calculate total sleep time: base delay + phase offset + jitter - elapsed time
+                sleep_time = max(0, base_delay + session_phase_offset + jitter - elapsed)
+
                 if sleep_time > 0:
                     await asyncio.sleep(sleep_time)
 
@@ -414,8 +559,10 @@ class ContinuousLoadGenerator:
         await self.setup_browser()
 
         try:
-            # Start session workers
+            # Start session workers (they will stagger themselves)
             tasks = []
+            print(f"{Fore.CYAN}📊 Sessions will start staggered over {(60.0 * (self.simultaneous_sessions - 1)) / self.requests_per_minute:.1f} seconds")
+
             for session_id in range(self.simultaneous_sessions):
                 task = asyncio.create_task(self.session_worker(session_id))
                 tasks.append(task)
